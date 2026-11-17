@@ -63,13 +63,13 @@ function keepAwake(pid) {
  * this one). Returns {release(), handOver(pid)}: release when the engine has exited; handOver gives the slot to a
  * process that outlives this script (an editor left running), and it frees itself when that process ends.
  */
-export async function acquireSlot({ label = 'engine', pid = process.pid, max = cap(), waitSec = Number(process.env.GAM3_SLOT_WAIT) || 1800, quiet = false } = {}) {
+export async function acquireSlot({ label = 'engine', pid = process.pid, max = cap(), waitSec = Number(process.env.GAM3_SLOT_WAIT) || 1800, quiet = false, countEngines = true } = {}) {
   fs.mkdirSync(dir(), { recursive: true });
   const deadline = Date.now() + waitSec * 1000;
   let told = 0;
   for (;;) {
     const held = slotsInUse();
-    const engines = enginesRunning();
+    const engines = countEngines ? enginesRunning() : [];   // off only in tests, which must not depend on what else is running
     if (Math.max(held.length, engines.length) < max) {
       for (let i = 0; i < max; i++) {
         const file = path.join(dir(), `slot-${i}.json`);

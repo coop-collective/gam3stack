@@ -46,10 +46,11 @@ engine needs a workspace of its own. Where that workspace comes from is not this
       node Tools/gam3/env.mjs create terrain     # -> GAM3ENV: ok created terrain path=... branch=gam3/terrain port=8124 copy=copy-on-write
 
   It copies the whole checkout as it is now (untracked assets, engine caches and uncommitted work included) onto
-  a new branch. On a file system that clones (APFS; Btrfs or XFS with reflinks) nothing is duplicated until a
-  file changes: a small project with an 85 MB `Library/` cloned in 0.4 s, and the first compile in the
-  clone needed no re-import. On a file system that cannot clone, the project is really copied, which for a
-  large project is slow: there, get workspaces from elsewhere.
+  a new branch, and checks the file system first. Where files can be cloned (APFS; Btrfs or XFS with reflinks; a
+  Dev Drive on Windows 11) nothing is duplicated until a file changes: a small project with an 85 MB `Library/` cloned in 0.4 s, and the first compile in the
+  clone needed no re-import. Elsewhere (NTFS, ext4) a large project
+  would be copied byte for byte, so `create` refuses and says so: get workspaces from elsewhere, or move the
+  project to a cloning volume.
 
 Tell each subagent, in its brief:
 

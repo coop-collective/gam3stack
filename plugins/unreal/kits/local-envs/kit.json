@@ -20,6 +20,6 @@
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon, APFS)",
     "date": "2026-11-17",
-    "how": "In a fresh C++ project on APFS: create (0.1 s, copy-on-write, uncommitted work carried over), a blind game run inside the copy with no rebuild, create from inside another environment, list, status, remove, and remove after the parent environment was gone. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Separately, cloning the content and caches of a 7.7 GB project took 0.3 s. Starting an editor inside an environment was not run. Linux, Windows and file systems without cloning were not run."
+    "how": "In a fresh C++ project on APFS: create (0.1 s, copy-on-write, uncommitted work carried over), a blind game run inside the copy with no rebuild, create from inside another environment, list, status, remove, and remove after the parent environment was gone. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Separately, cloning the content and caches of a 7.7 GB project took 0.3 s. Starting an editor inside an environment was not run. The full-copy path (small project copied, large project refused, --full-copy) is covered by the repository's tests, run on macOS so far. Cloning on Linux reflink volumes and Windows ReFS or Dev Drive was not run; on Windows the tool has not been run at all."
   }
 }

@@ -13,19 +13,20 @@ const shared = path.join(root, 'core', 'kit-shared');
 test('slots: the cap is held, a dead holder frees its slot, release frees it', async () => {
   process.env.GAM3_SLOT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gam3-slots-'));
   const { acquireSlot, slotsInUse, enginesRunning } = await import(path.join(shared, 'slots.mjs'));
-  // Engines really running on this machine count against the cap, so leave room for them.
-  const max = enginesRunning().length + 2;
-  const a = await acquireSlot({ label: 'a', max, quiet: true });
-  const b = await acquireSlot({ label: 'b', max, quiet: true });
+  assert.ok(Array.isArray(enginesRunning()));
+  // Engines really running on this machine count against the cap in real use; a test must not depend on them.
+  const opt = { max: 2, quiet: true, countEngines: false };
+  const a = await acquireSlot({ label: 'a', ...opt });
+  const b = await acquireSlot({ label: 'b', ...opt });
   assert.equal(slotsInUse().length, 2);
-  await assert.rejects(acquireSlot({ label: 'c', max, waitSec: 0.1, quiet: true }), /no free engine slot/);
+  await assert.rejects(acquireSlot({ label: 'c', ...opt, waitSec: 0.1 }), /no free engine slot/);
   a.release();
   assert.equal(slotsInUse().length, 1);
   // Handing a slot to a process that has already exited: the slot must not stay taken.
   const gone = spawnSync(process.execPath, ['-e', '']).pid;
   b.handOver(gone);
   assert.equal(slotsInUse().length, 0);
-  const c = await acquireSlot({ label: 'c', max, waitSec: 1, quiet: true });
+  const c = await acquireSlot({ label: 'c', ...opt, waitSec: 1 });
   c.release();
   delete process.env.GAM3_SLOT_DIR;
 });
@@ -80,6 +81,18 @@ test('env: create, status with a binary clash, guarded remove', (t) => {
   assert.match(env('remove', 'one', '--force').stdout, /GAM3ENV: ok removed one/);
   assert.match(env('remove', 'two').stderr, /1 uncommitted change/);   // the untracked file it carried over
   assert.match(env('remove', 'two', '--force').stdout, /GAM3ENV: ok removed two/);
+  // A file system that cannot clone: small projects are copied, large ones are refused unless asked for.
+  const copyEnv = (extra, ...args) => spawnSync(process.execPath, [path.join(proj, 'Tools', 'gam3', 'env.mjs'), ...args], { encoding: 'utf8', env: { ...process.env, GAM3_ENV_FORCE_COPY: '1', ...extra } });
+  const small = copyEnv({}, 'create', 'three');
+  assert.match(small.stdout, /GAM3ENV: ok created three .*copy=full/);
+  assert.equal(fs.readFileSync(path.join(base, 'game-env-three', 'Content', 'Level.umap'), 'utf8'), 'ours');
+  assert.match(copyEnv({}, 'remove', 'three', '--force').stdout, /ok removed three/);
+  const refusedCopy = copyEnv({ GAM3_ENV_COPY_LIMIT_GB: '0.000000001' }, 'create', 'four');
+  assert.equal(refusedCopy.status, 1);
+  assert.match(refusedCopy.stderr, /cannot clone files.*--full-copy/s);
+  assert.ok(!fs.existsSync(path.join(base, 'game-env-four')));
+  assert.match(copyEnv({ GAM3_ENV_COPY_LIMIT_GB: '0.000000001' }, 'create', 'four', '--full-copy').stdout, /copy=full/);
+  assert.match(copyEnv({}, 'remove', 'four', '--force').stdout, /ok removed four/);
   assert.match(env('list').stdout, /GAM3ENV: ok 0 environment/);
   assert.ok(!fs.existsSync(there));
 });

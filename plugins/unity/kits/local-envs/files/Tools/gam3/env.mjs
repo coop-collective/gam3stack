@@ -6,10 +6,15 @@
 //   node Tools/gam3/env.mjs list
 //   node Tools/gam3/env.mjs status NAME      what it changed, and which of those files will not merge
 //   node Tools/gam3/env.mjs remove NAME [--force]
-// The copy is copy-on-write where the file system can do it (APFS; Btrfs and XFS with reflinks): nothing is
-// duplicated until a file changes, so the cost follows the number of files, not their size, and no disk is used.
-// Everything comes along: assets git does not track, the engine's caches, uncommitted work. On a file system that
-// cannot clone, the whole project is really copied; for a large project that is slow, and a reason to use
+//   create also takes --full-copy (see below).
+// Works on macOS, Linux and Windows. How cheap a copy is depends on the file system, and create checks first:
+//   clones files (APFS; Btrfs and XFS with reflinks; ReFS and Dev Drive volumes on Windows 11 24H2 or later)
+//       nothing is duplicated until a file changes: the cost follows the number of files, not their size.
+//   does not (NTFS, ext4, exFAT, network shares)
+//       every byte is copied. Up to GAM3_ENV_COPY_LIMIT_GB (default 2) that is done; above it create refuses
+//       unless --full-copy is given, because a silent copy of a large project takes minutes and its size in disk.
+// Everything comes along: assets git does not track, the engine's caches, uncommitted work. When a full copy would
+// be too slow, the answer is a cloning volume (a Dev Drive on Windows, an XFS or Btrfs volume on Linux) or
 // workspaces from elsewhere instead. Each environment is a git worktree, so merging is plain git from the main
 // checkout: `git merge gam3/NAME`. Read `status` first: engine assets are binary, and a file changed on both sides
 // cannot be merged, only chosen.
@@ -64,33 +69,83 @@ function environments(r) {
   return out;
 }
 
-/** Copy one file or directory without copying its bytes where the file system allows it. Returns 'clone' or 'copy'. */
-function cloneInto(from, to) {
-  if (process.platform === 'darwin' && spawnSync('cp', ['-cR', from, to], { stdio: 'ignore' }).status === 0) return 'clone';
-  if (process.platform === 'linux' && spawnSync('cp', ['-R', '--reflink=always', from, to], { stdio: 'ignore' }).status === 0) return 'clone';
+/**
+ * Can files be cloned from `from` to a new sibling of `destParent` without copying their bytes?
+ * 'yes' was proven by cloning a probe file. 'expected' is Windows on ReFS, where the system clones on copy from
+ * Windows 11 24H2 on but offers no way to ask for a clone and fail otherwise. 'no' means a real copy.
+ */
+function cloneSupport(from, destParent) {
+  if (process.env.GAM3_ENV_FORCE_COPY === '1') return 'no';   // for tests of the copy path
+  if (process.platform === 'win32') {
+    const q = (p) => (spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Volume -FilePath '${p.replace(/'/g, "''")}').FileSystemType`], { encoding: 'utf8' }).stdout || '').trim();
+    const a = q(from);
+    return a === 'ReFS' && q(destParent) === 'ReFS' && path.parse(from).root === path.parse(destParent).root ? 'expected' : 'no';
+  }
+  const probe = path.join(from, `.gam3-probe-${process.pid}`);
+  const copy = path.join(destParent, `.gam3-probe-${process.pid}`);
+  try {
+    fs.writeFileSync(probe, 'probe');
+    fs.copyFileSync(probe, copy, fs.constants.COPYFILE_FICLONE_FORCE);
+    return 'yes';
+  } catch {
+    return 'no';
+  } finally {
+    fs.rmSync(probe, { force: true });
+    fs.rmSync(copy, { force: true });
+  }
+}
+
+/** Bytes under `dir`, stopping early once `limit` is passed (the exact size of a huge tree is not worth the walk). */
+function sizeUpTo(dir, limit) {
+  let total = 0;
+  const stack = [dir];
+  while (stack.length && total <= limit) {
+    const d = stack.pop();
+    let entries = [];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) stack.push(p);
+      else if (e.isFile()) { try { total += fs.statSync(p).size; } catch { /* vanished */ } }
+    }
+  }
+  return total;
+}
+
+/** Copy one file or directory, cloning where the file system can. The system tools are the fastest way to clone a tree. */
+function cloneInto(from, to, support) {
+  if (support === 'yes' && process.platform === 'darwin' && spawnSync('cp', ['-cR', from, to], { stdio: 'ignore' }).status === 0) return;
+  if (support === 'yes' && process.platform === 'linux' && spawnSync('cp', ['-R', '--reflink=always', from, to], { stdio: 'ignore' }).status === 0) return;
   fs.rmSync(to, { recursive: true, force: true });
-  fs.cpSync(from, to, { recursive: true, verbatimSymlinks: true });
-  return 'copy';
+  // COPYFILE_FICLONE: clone when the system can, copy when it cannot. On Windows this is CopyFile, which clones on ReFS.
+  fs.cpSync(from, to, { recursive: true, verbatimSymlinks: true, mode: fs.constants.COPYFILE_FICLONE });
 }
 
 function enginesOn(dir) {
-  if (process.platform === 'win32') return [];
+  if (process.platform === 'win32') return [];   // not checked on Windows; an engine with files open there makes the removal itself fail
   const r = spawnSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8' });
   return lines(r.stdout || '').filter((l) => /UnrealEditor|Unity/.test(l) && l.includes(dir) && !/CrashReportClient/.test(l)).map((l) => Number(l.split(/\s+/)[0]));
 }
 
-function create(r, name) {
+function create(r, name, fullCopy) {
   const dest = envPath(r, name);
   if (fs.existsSync(dest) || fs.existsSync(`${dest}.wt`)) throw new Error(`already exists: ${dest}`);
   const baseSha = git(r.top, ['rev-parse', 'HEAD']).out;
   const baseBranch = git(r.top, ['rev-parse', '--abbrev-ref', 'HEAD']).out;
+  const support = cloneSupport(r.top, path.dirname(dest));
+  if (support === 'no' && !fullCopy) {
+    const limit = (Number(process.env.GAM3_ENV_COPY_LIMIT_GB) || 2) * 1024 ** 3;
+    if (sizeUpTo(r.top, limit) > limit) {
+      throw new Error(`this file system cannot clone files, and the project is over ${limit / 1024 ** 3} GB, so an environment would be a full copy: slow, and as large as the project. `
+        + 'Use workspaces from your platform, or put the project on a cloning volume (a Dev Drive on Windows 11, APFS on macOS, XFS or Btrfs with reflinks on Linux). To copy anyway: --full-copy.');
+    }
+  }
   const t0 = Date.now();
   // The branch and git's record of the checkout, with no files written; the files come from the copy below.
   git(r.main, ['worktree', 'add', '--no-checkout', '-b', `gam3/${name}`, `${dest}.wt`, baseSha]);
   fs.mkdirSync(dest);
-  const how = new Set();
   for (const entry of fs.readdirSync(r.top)) {
-    if (entry !== '.git') how.add(cloneInto(path.join(r.top, entry), path.join(dest, entry)));
+    if (entry !== '.git') cloneInto(path.join(r.top, entry), path.join(dest, entry), support);
   }
   fs.renameSync(path.join(`${dest}.wt`, '.git'), path.join(dest, '.git'));
   fs.rmSync(`${dest}.wt`, { recursive: true, force: true });
@@ -105,9 +160,10 @@ function create(r, name) {
   const ignore = path.join(proj, '.gam3', '.gitignore');
   if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, 'env.json\neditor.json\n.gitignore\n');
   fs.writeFileSync(envFile(proj), JSON.stringify({ name, port, base: baseBranch, base_sha: baseSha, created: new Date().toISOString() }, null, 2) + '\n');
-  const copied = how.has('copy');
-  console.log(`GAM3ENV: ok created ${name} path=${proj} branch=gam3/${name} port=${port} copy=${copied ? 'full' : 'copy-on-write'} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  if (copied) console.log('note: this file system cannot clone files, so the project was copied in full. For a large project, workspaces provided from elsewhere will be faster than this tool.');
+  const kind = { yes: 'copy-on-write', expected: 'copy-on-write-expected', no: 'full' }[support];
+  console.log(`GAM3ENV: ok created ${name} path=${proj} branch=gam3/${name} port=${port} copy=${kind} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  if (support === 'expected') console.log('note: this is a ReFS volume. Windows 11 24H2 and later clone files on copy there; older versions copy every byte. The time above tells you which happened.');
+  if (support === 'no') console.log('note: this file system cannot clone files, so the project was copied in full.');
   return 0;
 }
 
@@ -163,7 +219,7 @@ function main(argv) {
   const flag = (n) => rest.includes(`--${n}`);
   const name = rest.find((a) => !a.startsWith('--'));
   const r = repo();
-  if (cmd === 'create') return create(r, checkName(name));
+  if (cmd === 'create') return create(r, checkName(name), flag('full-copy'));
   if (cmd === 'status') return status(r, checkName(name));
   if (cmd === 'remove') return remove(r, checkName(name), flag('force'));
   if (cmd === 'list') {
@@ -175,7 +231,7 @@ function main(argv) {
     console.log(`GAM3ENV: ok ${envs.length} environment(s)`);
     return 0;
   }
-  console.error('usage: env.mjs create NAME | list | status NAME | remove NAME [--force]');
+  console.error('usage: env.mjs create NAME [--full-copy] | list | status NAME | remove NAME [--force]');
   return 2;
 }
 

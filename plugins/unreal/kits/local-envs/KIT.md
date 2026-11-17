@@ -17,13 +17,25 @@ It copies the whole checkout as it is now, next to the repository, and puts the 
 is a git worktree of the same repository, so merging is `git merge gam3/NAME` from the main checkout. It gets its
 own port for an editor's MCP server, written to `.gam3/env.json`.
 
-On a file system that can clone files (APFS; Btrfs and XFS with reflinks) no bytes are copied until a file is
-changed, so the cost follows the number of files and not their size. Measured on APFS: a
+## What it costs, by file system
+
+`create` checks whether the volume can clone files before it copies anything.
+
+| Volume | What happens | Cost |
+| --- | --- | --- |
+| macOS, APFS | Files are cloned | Follows the number of files, not their size; no disk used until files change |
+| Linux, Btrfs or XFS with reflinks | Files are cloned | The same |
+| Windows 11 24H2 or later, ReFS or a Dev Drive | Windows clones on copy; reported as `copy=copy-on-write-expected` | The same, if the Windows version does it: the time printed tells you |
+| Windows NTFS, Linux ext4, exFAT, network shares | Every byte is copied (`copy=full`) | Minutes and the project's size in disk for a large project |
+
+Measured on APFS: a
 small project in 0.1 s; the content and caches of a 7.7 GB project (1,222 content files) in 0.3 s with no change
 in free disk. The game ran in a copy with no rebuild.
 
-On a file system that cannot clone, the project is copied in full and the tool says so. For a large project that
-is slow and doubles the disk used: get workspaces from elsewhere instead.
+Where files cannot be cloned, a project up to `GAM3_ENV_COPY_LIMIT_GB` (default 2) is copied. Above that `create`
+refuses and says why, so a large project is never copied by surprise; `--full-copy` copies it anyway. The better
+answers for a large project there are workspaces from your platform, or moving the project to a cloning volume
+(on Windows 11: Settings > System > Storage > Disks & volumes > Create Dev Drive).
 
 ## Several copies being edited at once
 
@@ -33,6 +45,9 @@ chosen. Give each agent its own files, and run `status` before merging: it marks
 
 ## Limits
 
-- Run on APFS only. Reflink cloning on Linux and the full-copy fallback were not run. Windows always copies.
+- Cloning was run on APFS only. The full-copy path and its size guard are covered by the repository's tests on
+  macOS, Linux and Windows runners. Cloning on Linux reflink volumes and on Windows ReFS was not run.
+- On Windows the tool cannot ask for a clone and fail otherwise, so on ReFS it reports what it expects, not what
+  happened. It also does not check for a running engine before `remove` there.
 - The first `git status` in a new copy re-reads every tracked file once.
 - An environment made from inside another environment is based on that environment's commit.

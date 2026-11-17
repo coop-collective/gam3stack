@@ -100,7 +100,9 @@ in Unreal and 0.006 s in Unity on the test machine; what is left is engine start
 **One subagent, one workspace.** Agents that run the engine must not share a checkout. Where the workspaces come
 from is up to you: a platform that distributes the project to machines or virtual machines, or, on a single
 machine, the optional `local-envs` kit, which makes copy-on-write copies of the whole project on their own
-branches (a 7.7 GB project cloned in 0.3 s on APFS, using no disk). Either way a machine-wide cap
+branches. It checks the file system first: where files can be cloned (APFS, Linux reflink volumes, a Windows Dev
+Drive) nothing is duplicated (a 7.7 GB project cloned in 0.3 s on APFS); elsewhere it refuses to copy a large
+project unless told to. Either way a machine-wide cap
 (`GAM3_MAX_ENGINES`, default 3) queues engine starts, and the skills carry the merge rules: engine assets are
 binary, so each agent owns its files and generated levels are rebuilt after merging.
 
