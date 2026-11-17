@@ -20,6 +20,6 @@
     "engine": "Unity 6000.6.5f1",
     "os": "macOS 26 (Apple silicon, APFS)",
     "date": "2026-11-17",
-    "how": "In a small built-in-pipeline project on APFS: create (0.4 s, copy-on-write, 85 MB Library, uncommitted work carried over), a blind compile inside the copy with no re-import, remove. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Two editors side by side were run on the earlier worktree-based version of this tool, not this one. The full-copy path (small project copied, large project refused, --full-copy) is covered by the repository's tests, run on macOS so far. Cloning on Linux reflink volumes and Windows ReFS or Dev Drive was not run; on Windows the tool has not been run at all."
+    "how": "In a small built-in-pipeline project on APFS: create (0.4 s, copy-on-write, 85 MB Library, uncommitted work carried over), a blind compile inside the copy with no re-import, remove. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Two editors side by side were run on the earlier worktree-based version of this tool, not this one. The repository's tests (create, clash detection, guarded remove, small project copied, large project refused, --full-copy) pass on macOS, Linux and Windows runners; on Linux and Windows that exercised the full-copy path only, with a tiny test project and no engine. Cloning on Linux reflink volumes and Windows ReFS or Dev Drive was not run."
   }
 }
