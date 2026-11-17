@@ -78,7 +78,8 @@ test('env: create, status with a binary clash, guarded remove', (t) => {
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /unmerged commit/);
   assert.match(env('remove', 'one', '--force').stdout, /GAM3ENV: ok removed one/);
-  assert.match(env('remove', 'two').stdout, /GAM3ENV: ok removed two/);
+  assert.match(env('remove', 'two').stderr, /1 uncommitted change/);   // the untracked file it carried over
+  assert.match(env('remove', 'two', '--force').stdout, /GAM3ENV: ok removed two/);
   assert.match(env('list').stdout, /GAM3ENV: ok 0 environment/);
   assert.ok(!fs.existsSync(there));
 });
