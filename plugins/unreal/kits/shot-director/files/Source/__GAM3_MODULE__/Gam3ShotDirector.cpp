@@ -104,7 +104,10 @@ bool UGam3ShotDirector::Tick(float DeltaSeconds)
 	Elapsed += FMath::Min(DeltaSeconds, 0.25f);
 	++FramesSinceShot;
 
-	if (NextShot < ShotTimes.Num() && Elapsed >= ShotTimes[NextShot])
+	// One request at a time: a second request replaces one that has not been written yet, and that picture is lost.
+	const bool bShotPending = FScreenshotRequest::IsScreenshotRequested();
+	if (bShotPending) FramesSinceShot = 0;
+	if (!bShotPending && NextShot < ShotTimes.Num() && Elapsed >= ShotTimes[NextShot])
 	{
 		const FString Name = FPaths::ProjectSavedDir() / TEXT("Screenshots") / FString::Printf(TEXT("%s_%02d.png"), *Prefix, NextShot);
 		FScreenshotRequest::RequestScreenshot(Name, false, false);
@@ -114,7 +117,7 @@ bool UGam3ShotDirector::Tick(float DeltaSeconds)
 	}
 	// The image is written a few frames after it is requested: never quit on top of a pending shot.
 	const bool bShotsDone = NextShot >= ShotTimes.Num() || ShotTimes[NextShot] > QuitAt;
-	if (QuitAt > 0.f && Elapsed >= QuitAt && bShotsDone && FramesSinceShot > 8)
+	if (QuitAt > 0.f && Elapsed >= QuitAt && bShotsDone && !bShotPending && FramesSinceShot > 8)
 	{
 		QuitAt = -1.f;
 		UE_LOG(LogTemp, Display, TEXT("GAM3SHOT: quitting at %.1fs"), Elapsed);

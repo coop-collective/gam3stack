@@ -18,7 +18,7 @@ Each takes `--log FILE`; by default logs go to `Saved/Logs/gam3/`. Each exits no
 | Profile | What runs | Answers | Cannot answer |
 | --- | --- | --- | --- |
 | `blind` | No renderer (`-nullrhi`), fixed time step | Does it load, does the logic run, what does the log say | Anything visual. `--shots` is refused |
-| `agent` | 640x360, lighting quality lowered, fixed time step | Is it there, where, what shape, roughly what colour, first frame after ready | Lighting, shadows, anti-aliasing, frame rate |
+| `agent` | 640x360, fixed time step; reflections, shading, anti-aliasing and shadows at low quality | Is it there, where, what shape, what colour, first frame after ready | Shadows, reflections, edges, frame rate |
 | `human` (default) | Full quality, real time | Look, feel, speed: the sign-off | |
 
 Under a fixed time step each frame advances the game by exactly 1/30 s however long it took to compute. A slow or
@@ -27,8 +27,10 @@ the machine allows. Measured on an Apple silicon laptop, UE 5.9, a small landsca
 second run onwards: `blind` 6.4 s (the 10 game seconds took 0.03 s; the rest is start-up), `agent` 10.3 s, `human`
 18.2 s. Peak memory 2.0, 2.5 and 2.5 GB. A heavier level changes these; measure your own.
 
-`agent` does not lower view distance, foliage or texture quality: a profile that hides things would turn "is it
-there" into a wrong no.
+`agent` lowers only settings measured not to change the picture's content or colour. On a grass level, average
+colour stayed within 1 in 255 of full quality for each setting it lowers; lowering global illumination moved it by
+59 and post-process quality by 15, so those are left alone. Effects, view distance, foliage and textures are left
+alone because lowering them removes things, and that would turn "is it there" into a wrong no.
 
 ## Rules these scripts enforce
 
@@ -37,8 +39,8 @@ there" into a wrong no.
   that drew a character in its bind pose.
 - **At most `GAM3_MAX_ENGINES` engine processes at once on the machine** (default 3). Every editor and game started
   here takes a slot first and waits when none is free. Engines started by hand or by other tools count too.
-- **The machine stays awake while a slot is held** (macOS: `caffeinate`). A laptop that idles to sleep freezes the
-  run and its timeouts with it.
+- **The machine stays awake while a slot is held** (macOS: `caffeinate`), which stops idle sleep. Closing a laptop
+  lid still sleeps it; the tools notice the gap, do not count it against the timeout, and print `slept=Ns`.
 
 - **No compile while an editor has the project open.** The build refuses and names the PID. Close that editor
   yourself (or `ue_editor.mjs stop` from the editor-bridge kit). `--force` skips the check. On Windows the check

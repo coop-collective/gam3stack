@@ -14,14 +14,15 @@ Three ideas, in the order they pay off.
 | Question | Profile |
 | --- | --- |
 | Does it compile, load, run without errors? Does the logic do the right thing? Does the gate open? | `blind`: no renderer, game time as fast as the machine goes |
-| Is the thing there? Right place, shape, rough colour? What is on screen at frame 0? Is a character in its bind pose? | `agent`: 640x360, cheap lighting, fixed time step |
+| Is the thing there? Right place, shape, rough colour? What is on screen at frame 0? Is a character in its bind pose? | `agent`: 640x360, fixed time step, cheaper shadows and reflections |
 | Does it look right? Lighting, shadows, materials up close, motion, frame rate | `human`: full quality, real time |
 
 - Start at `blind` and move up only when the question needs a picture. Most iterations on logic and loading need
   none.
 - Ask for data before pixels where you can: an actor count, a bounds box, a trace, a log line is exact and cheap.
 - A screenshot above about 1500 pixels wide is scaled down before a model sees it. Large captures buy nothing.
-- `agent` pictures are wrong about lighting by design. Never tune or approve look from them.
+- `agent` pictures keep colour and content but simplify shadows, reflections and edges. Never approve look from
+  them.
 - Final check of anything a player sees: `human`, in the main checkout, after merging.
 
 Under `blind` and `agent` the game runs on a fixed time step: results do not depend on how busy the machine is,
@@ -58,7 +59,8 @@ Brief each subagent with all of this, because it knows nothing else:
 
 The machine limit is enforced, not requested: every tool that starts an engine waits for a slot
 (`GAM3_MAX_ENGINES`, default 3, counting engines started by anyone). A subagent that seems stuck may be queued:
-`node Tools/gam3/slots.mjs` shows who holds what. An open editor holds a slot until it is stopped, so subagents
+`node Tools/gam3/slots.mjs` shows who holds what. A closed laptop lid still sleeps the machine: runs survive it and report `slept=Ns`, but nothing progresses
+meanwhile. An open editor holds a slot until it is stopped, so subagents
 should stop theirs when done. Each engine takes 2 GB of memory or more; raise the limit only on a machine that has it.
 
 ## 3. Merge on purpose

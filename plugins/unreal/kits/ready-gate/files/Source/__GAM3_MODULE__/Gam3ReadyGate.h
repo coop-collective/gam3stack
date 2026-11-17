@@ -6,7 +6,8 @@
 // a screenshot taken then is a picture of loading, not of the game.
 //
 // What this gives the game, with no code of your own:
-//   - a black cover (camera fade, audio muted) from the first frame until the gate opens, then a short fade in;
+//   - a black cover over everything, the HUD and UI included (a full-screen layer on the viewport; audio is
+//     muted by a camera fade), from the first frame until the gate opens, then a short fade in;
 //   - the gate opens when nothing is still compiling or loading, the player has a pawn, every blocker you added
 //     is removed, and that has held for SettleFrames frames in a row;
 //   - a timeout, so a stuck condition is logged with its reason instead of holding the player forever.
@@ -33,6 +34,7 @@
 #include "Gam3ReadyGate.generated.h"
 
 class AActor;
+class SWidget;
 class USkeletalMeshComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGam3OnReady);
@@ -95,6 +97,7 @@ public:
 	bool bWaitForPlayerPawn = true;
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(UGam3ReadyGate, STATGROUP_Tickables); }
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
@@ -107,11 +110,16 @@ private:
 	};
 
 	void Collect(UWorld* World, bool bIncludeSoft, TArray<FString>& Waiting) const;
-	void Cover(UWorld* World, float Amount) const;
+	void Cover(UWorld* World);
+	void Uncover(UWorld* World);
 	void Open(UWorld* World, bool bTimedOut, const TArray<FString>& Waiting);
 	void UpdatePoses();
 	void Watch(UWorld* World, double Now);
 	static bool TryPose(USkeletalMeshComponent* Mesh);
+
+	/** The layer above the HUD and UI. A camera fade alone leaves both showing over a black scene. */
+	TSharedPtr<SWidget> CoverWidget;
+	float CoverAlpha = 1.f;
 
 	bool bReady = false;
 	bool bWatch = false;

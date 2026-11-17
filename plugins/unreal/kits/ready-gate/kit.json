@@ -1,7 +1,7 @@
 {
   "name": "ready-gate",
   "engine": "unreal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "summary": "Runtime code for the game itself: a cover until the level is actually ready (nothing compiling or loading, player spawned), and characters that are never shown in their bind pose. Unattended runs use the same gate to know when a capture means anything.",
   "requires": [
     "ue-driver"
@@ -15,7 +15,7 @@
     }
   },
   "adapt": [
-    "Add \"RenderCore\" to PublicDependencyModuleNames in Source/<Module>/<Module>.Build.cs (the gate asks the pipeline cache what is still compiling).",
+    "Add \"RenderCore\", \"Slate\" and \"SlateCore\" to PublicDependencyModuleNames in Source/<Module>/<Module>.Build.cs (the gate asks the pipeline cache what is still compiling, and draws its cover as a viewport layer).",
     "Close the editor, then compile: node Tools/gam3/ue_build.mjs",
     "After every place the game spawns or re-dresses a character, call UGam3ReadyGate::ShowActorWhenPosed(Character).",
     "Start match time, music and intros from OnReady, not BeginPlay: time must not pass behind the cover.",
@@ -30,6 +30,6 @@
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "Compiled into a fresh C++ project. The gate opened (GAM3READY: ok) under the blind, agent and human profiles. A blocker that was never removed gave GAM3READY: TIMEOUT waiting=blocker:... after the set 4 s and a FAILED run. A test character whose animation was assigned half a second after it spawned: without the gate the watch logged 'bind-pose visible ... frames=15 before it animated' and the run failed, and the capture showed the bind pose; with ShowActorWhenPosed nothing was logged, the capture at the same moment showed no character, and the next showed it walking. Not run: a packaged or Shipping build, the pipeline-state wait, World Partition and level streaming waits, a custom loading screen, Blueprint use, Windows and Linux."
+    "how": "Compiled into a fresh C++ project. The gate opened (GAM3READY: ok) under the blind, agent and human profiles. A blocker that was never removed gave GAM3READY: TIMEOUT waiting=blocker:... after the set 4 s and a FAILED run. A test character whose animation was assigned half a second after it spawned: without the gate the watch logged 'bind-pose visible ... frames=15 before it animated' and the run failed, and the capture showed the bind pose; with ShowActorWhenPosed nothing was logged, the capture at the same moment showed no character, and the next showed it walking. Not run: a packaged or Shipping build, the pipeline-state wait, World Partition and level streaming waits, a custom loading screen, Blueprint use, Windows and Linux. 0.2.0: the cover is a viewport layer. With a HUD drawing a red box and text, a capture with UI taken while the gate was shut was entirely black, and one taken after it opened showed the HUD. Also installed into a real game project with two open-world levels: the gate opened on both, and its own HUD stayed hidden until then (that game also hides its HUD itself, so this is not independent proof)."
   }
 }

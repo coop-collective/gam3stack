@@ -4,8 +4,10 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "ContentStreaming.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
+#include "Framework/Application/SlateApplication.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformTime.h"
@@ -14,6 +16,7 @@
 #include "Misc/Parse.h"
 #include "ShaderPipelineCache.h"
 #include "UnrealClient.h"
+#include "Widgets/Colors/SColorBlock.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectIterator.h"
 #include "WorldPartition/WorldPartitionSubsystem.h"
@@ -95,9 +98,37 @@ void UGam3ReadyGate::Collect(UWorld* World, bool bIncludeSoft, TArray<FString>& 
 	if (PendingPoses.Num() > 0) Waiting.Add(FString::Printf(TEXT("poses:%d"), PendingPoses.Num()));
 }
 
-void UGam3ReadyGate::Cover(UWorld* World, float Amount) const
+void UGam3ReadyGate::Deinitialize()
+{
+	Uncover(GetWorld());
+	Super::Deinitialize();
+}
+
+void UGam3ReadyGate::Uncover(UWorld* World)
+{
+	if (!CoverWidget.IsValid()) return;
+	if (UGameViewportClient* Viewport = World ? World->GetGameViewport() : nullptr)
+	{
+		Viewport->RemoveViewportWidgetContent(CoverWidget.ToSharedRef());
+	}
+	CoverWidget.Reset();
+}
+
+void UGam3ReadyGate::Cover(UWorld* World)
 {
 	if (!bCoverWithFade) return;
+	const float Amount = 1.f;
+	if (!CoverWidget.IsValid() && FSlateApplication::IsInitialized())
+	{
+		if (UGameViewportClient* Viewport = World->GetGameViewport())
+		{
+			TWeakObjectPtr<UGam3ReadyGate> Weak(this);
+			CoverWidget = SNew(SColorBlock)
+				.Visibility(EVisibility::HitTestInvisible)   // it hides; it does not take input away from the game
+				.Color(TAttribute<FLinearColor>::CreateLambda([Weak]() { return FLinearColor(0.f, 0.f, 0.f, Weak.IsValid() ? Weak->CoverAlpha : 0.f); }));
+			Viewport->AddViewportWidgetContent(CoverWidget.ToSharedRef(), 100000);
+		}
+	}
 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
 	{
 		const APlayerController* PC = It->Get();
@@ -127,9 +158,11 @@ void UGam3ReadyGate::Open(UWorld* World, bool bTimedOut, const TArray<FString>& 
 		{
 			const APlayerController* PC = It->Get();
 			if (!PC || !PC->IsLocalController() || !PC->PlayerCameraManager) continue;
-			if (FadeInSeconds > 0.f) PC->PlayerCameraManager->StartCameraFade(1.f, 0.f, FadeInSeconds, FLinearColor::Black, true, false);
-			else PC->PlayerCameraManager->SetManualCameraFade(0.f, FLinearColor::Black, false);
+			// The layer above does the visible fade; this one only brings the sound back with it.
+			if (FadeInSeconds > 0.f) PC->PlayerCameraManager->StartCameraFade(0.f, 0.f, FadeInSeconds, FLinearColor::Black, true, false);
+			PC->PlayerCameraManager->SetManualCameraFade(0.f, FLinearColor::Black, false);
 		}
+		if (FadeInSeconds <= 0.f) Uncover(World);
 	}
 	OnReadyNative.Broadcast();
 	OnReady.Broadcast();
@@ -257,7 +290,7 @@ void UGam3ReadyGate::Tick(float DeltaTime)
 
 	if (!bReady)
 	{
-		Cover(World, 1.f);
+		Cover(World);
 		const double Waited = Now - StartWall;
 		TArray<FString> Waiting;
 		Collect(World, Waited < SoftSeconds, Waiting);
@@ -266,8 +299,13 @@ void UGam3ReadyGate::Tick(float DeltaTime)
 		if (bTimedOut && Waiting.Num() == 0) Waiting.Add(TEXT("settling"));
 		if (Settled >= FMath::Max(SettleFrames, 1) || bTimedOut) Open(World, bTimedOut && Settled < FMath::Max(SettleFrames, 1), Waiting);
 	}
+	else if (CoverWidget.IsValid())
+	{
+		CoverAlpha = 1.f - static_cast<float>((Now - ReadyWall) / FMath::Max(FadeInSeconds, 0.01f));
+		if (CoverAlpha <= 0.f) Uncover(World);
+	}
 #if !UE_BUILD_SHIPPING
-	else if (bWatch)
+	if (bReady && bWatch)
 	{
 		Watch(World, Now);
 	}

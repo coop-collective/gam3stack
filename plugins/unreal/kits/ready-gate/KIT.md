@@ -13,7 +13,8 @@ mesh is shown.
 
 `UGam3ReadyGate` is a world subsystem; it exists in every game world.
 
-- A black cover (camera fade, audio muted) from the first frame.
+- A black cover from the first frame, over everything: the scene, the HUD and UI widgets (a full-screen layer on
+  the viewport, above the game's own). Audio is muted with it.
 - The gate opens when all of this has held for `SettleFrames` frames in a row: nothing compiling, no pipeline
   states still precompiling, no async loading, no level streaming pending, World Partition streaming complete, the
   player has a pawn, and every blocker you added has been removed. Texture streaming and characters waiting for
@@ -65,4 +66,5 @@ With your own loading screen, set `bCoverWithFade=False` and remove the screen i
   purpose is shown too: hide it again after.
 - An uncooked run compiles shaders on demand; a packaged build precompiles pipeline states instead. The gate waits
   for both, but only uncooked runs were tested. Check a packaged build before release.
-- Needs a C++ game module and `RenderCore` in its dependencies.
+- Needs a C++ game module with `RenderCore`, `Slate` and `SlateCore` in its dependencies.
+- The engine's own debug text (`stat` commands) draws above the cover. Players never see that.

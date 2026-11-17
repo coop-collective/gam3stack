@@ -1,7 +1,7 @@
 {
   "name": "ue-driver",
   "engine": "unreal",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "summary": "Shell commands to compile the project's C++, run editor Python unattended, and run the game unattended with its log checked for errors.",
   "requires": [],
   "params": {},
@@ -16,6 +16,6 @@
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "Installed into a fresh C++ project. ue_build.mjs compiled it and refused while an editor had the project open. ue_game.mjs ran a built level under the blind, agent and human profiles and reported readiness, shots and log problems; --shots under blind was refused. slots.mjs: three runs started together with GAM3_MAX_ENGINES=2 queued and all finished. ue_python.mjs was run for 0.1.0 and not again. Windows and Linux were not run."
+    "how": "Installed into a fresh C++ project. ue_build.mjs compiled it and refused while an editor had the project open. ue_game.mjs ran a built level under the blind, agent and human profiles and reported readiness, shots and log problems; --shots under blind was refused. slots.mjs: three runs started together with GAM3_MAX_ENGINES=2 queued and all finished. ue_python.mjs was run for 0.1.0 and not again. Windows and Linux were not run. 0.2.1: the agent profile was compared with full quality on a grass level, one setting at a time, by average colour; only settings within 2 in 255 were kept. The sleep-aware timeout was not exercised by an actual sleep."
   }
 }

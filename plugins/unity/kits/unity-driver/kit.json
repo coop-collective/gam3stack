@@ -1,7 +1,7 @@
 {
   "name": "unity-driver",
   "engine": "unity",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "summary": "Run the Unity editor unattended from the shell: compile check, run an editor method, run EditMode and PlayMode tests, at a chosen profile (blind, agent, human), with a machine-wide cap on engines.",
   "requires": [],
   "params": {},
@@ -18,6 +18,6 @@
     "engine": "Unity 6000.6.5f1",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "In a small built-in-pipeline project. 0.1.0 checks (compile ok and failed, exec arguments, exceptions, exit codes, missing method, EditMode tests, refusal while another editor holds the project) still hold. New in 0.2.0: compile, EditMode and PlayMode test runs under blind (-nographics), agent and human; under blind and agent a play-mode test measured 300 frames = 10.000 s of game time (fixed 1/30 s step), under human real time; the quality level dropped to the lowest under agent and ProjectSettings/QualitySettings.asset was byte-identical afterwards; a capture under blind was refused; --stay with a method that never exits was stopped by --timeout; a second run on the same project was refused while the first ran; two editors ran side by side on two copies of the project; with GAM3_MAX_ENGINES=1 the second run waited for the slot and then ran. Seconds and peak memory in KIT.md are from these runs. Two of about sixty runs took 79 s and 468 s instead of about 5 s; they passed. The 468 s one coincided with the machine idling to sleep; the other was not explained. Not run: Windows, Linux, URP, HDRP, more than two editors at once."
+    "how": "In a small built-in-pipeline project. 0.1.0 checks (compile ok and failed, exec arguments, exceptions, exit codes, missing method, EditMode tests, refusal while another editor holds the project) still hold. New in 0.2.0: compile, EditMode and PlayMode test runs under blind (-nographics), agent and human; under blind and agent a play-mode test measured 300 frames = 10.000 s of game time (fixed 1/30 s step), under human real time; the quality level dropped to the lowest under agent and ProjectSettings/QualitySettings.asset was byte-identical afterwards; a capture under blind was refused; --stay with a method that never exits was stopped by --timeout; a second run on the same project was refused while the first ran; two editors ran side by side on two copies of the project; with GAM3_MAX_ENGINES=1 the second run waited for the slot and then ran. Seconds and peak memory in KIT.md are from these runs. Two of about sixty runs took 79 s and 468 s instead of about 5 s; they passed. The 468 s one coincided with the machine idling to sleep; the other was not explained. Not run: Windows, Linux, URP, HDRP, more than two editors at once. 0.2.1: the timeout counts time awake and reports a sleep; one blind compile was run after the change, an actual sleep was not."
   }
 }

@@ -41,7 +41,7 @@ Build these in from the first playable level; they are cheap then and expensive 
 
 | Rule | How |
 | --- | --- |
-| Nothing is shown until the level is ready | The gate's cover does it. With your own loading screen: `bCoverWithFade=False`, remove the screen in `OnReady` |
+| Nothing is shown until the level is ready | The gate's cover does it, HUD and UI included. With your own loading screen: `bCoverWithFade=False`, remove the screen in `OnReady` |
 | No time passes behind the cover | Start the match clock, music, intro, AI and spawners from `OnReady`, not `BeginPlay` |
 | The gate knows about your loading | `AddBlocker` / `RemoveBlocker` around save files, procedural generation, server handshakes, async asset loads |
 | A character is never drawn in its bind pose | Call `UGam3ReadyGate::ShowActorWhenPosed(Character)` right after every spawn, respawn, mesh swap or re-dress |

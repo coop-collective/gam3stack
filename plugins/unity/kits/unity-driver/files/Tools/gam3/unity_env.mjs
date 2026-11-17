@@ -131,16 +131,29 @@ export function runUnity(cfg, args, { timeoutSec = 0 } = {}) {
     let peakRssMb = 0;
     const sampler = setInterval(() => { if (child.pid) peakRssMb = Math.max(peakRssMb, rssMb(child.pid, cfg.platform)); }, 1000);
     const stop = () => { try { child.kill('SIGTERM'); } catch { /* gone */ } setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, 5000).unref(); };
-    const timer = timeoutSec > 0 ? setTimeout(() => { timedOut = true; stop(); }, timeoutSec * 1000) : null;
+    // The limit counts time awake: a machine that sleeps (a closed laptop lid) freezes the editor too, and charging
+    // that time to the run would report a healthy run as hung. A gap far longer than the tick is a sleep.
+    let slept = 0;
+    let awake = 0;
+    let last = Date.now();
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const gap = (now - last) / 1000;
+      last = now;
+      if (gap > 20) { slept += gap; return; }
+      awake += gap;
+      if (timeoutSec > 0 && awake > timeoutSec && !timedOut) { timedOut = true; stop(); }
+    }, 1000);
     const onSignal = () => { stop(); process.exitCode = 130; };
     process.once('SIGINT', onSignal);
     process.once('SIGTERM', onSignal);
     const finish = (code, signal) => {
-      if (timer) clearTimeout(timer);
+      clearInterval(timer);
+      if (slept) console.error(`the machine slept for ${Math.round(slept)}s during this run; that time is not counted against the timeout`);
       clearInterval(sampler);
       process.removeListener('SIGINT', onSignal);
       process.removeListener('SIGTERM', onSignal);
-      resolve({ code: code ?? (signal ? 1 : 0), signal, timedOut, seconds: (Date.now() - t0) / 1000, pid: child.pid, peakRssMb: Math.round(peakRssMb) });
+      resolve({ code: code ?? (signal ? 1 : 0), signal, timedOut, seconds: (Date.now() - t0) / 1000, pid: child.pid, peakRssMb: Math.round(peakRssMb), slept: Math.round(slept) });
     };
     child.on('error', (e) => { console.error(`could not start the editor: ${e.message}`); finish(127, null); });
     child.on('exit', finish);

@@ -113,18 +113,22 @@ export function editorPythonArgs(cfg, script, logFile, scriptArgs = []) {
  * How much of the engine a run needs: the three "eyes". Pick the cheapest one that can answer the question.
  *   blind  no renderer at all (-nullrhi). Game logic, physics, loading and the log still work; nothing can be
  *          captured. Game time runs on a fixed step, as fast as the machine allows.
- *   agent  a small, cheap picture: 640x360, lighting quality lowered, fixed time step. Enough to see whether a
- *          thing is there, where it is and roughly what colour. View distance, foliage and textures are NOT
- *          lowered, so nothing that should be visible is culled. Never judge lighting, shadows or frame rate here.
+ *   agent  a small, cheap picture: 640x360, fixed time step, reflections, shading, anti-aliasing and shadows at
+ *          low quality. Enough to see whether a thing is there, where it is and what colour. Nothing is culled and
+ *          the lighting model is not changed. Never judge shadows, reflections, edges or frame rate here.
  *   human  what a player gets: full quality, real time. The only profile for sign-off on look, feel and speed.
  * Under a fixed step every frame advances the game by exactly 1/fps seconds however long it took to compute, so a
  * slow machine changes how long a run takes, never what happens in it.
  */
+// Only settings measured not to change what is on screen or its colour. Global illumination and post-process quality
+// are left alone: lowering them washed a grass level out to near white. Effects, view distance, foliage and texture
+// quality are left alone because they remove things, and "is it there" must not get a wrong no.
+const AGENT_CMDS = ['sg.ReflectionQuality 0', 'sg.ShadingQuality 0', 'sg.AntiAliasingQuality 0', 'sg.ShadowQuality 1'];
 export const PROFILES = {
   blind: { res: [320, 180], args: ['-nullrhi', '-nosound', '-UseFixedTimeStep', '-fps=30'], cmds: [], captures: false },
   agent: {
     res: [640, 360], args: ['-nosound', '-UseFixedTimeStep', '-fps=30'], captures: true,
-    cmds: ['sg.GlobalIlluminationQuality 0', 'sg.ReflectionQuality 0', 'sg.PostProcessQuality 0', 'sg.EffectsQuality 0', 'sg.ShadingQuality 0', 'sg.AntiAliasingQuality 0', 'sg.ShadowQuality 1'],
+    cmds: AGENT_CMDS,
   },
   human: { res: [1920, 1080], args: [], cmds: [], captures: true },
 };
@@ -258,14 +262,23 @@ export async function runUnreal(cfg, file, args, { logFile, cwd = cfg.proj, time
   const { child, done } = start(file, args, { cwd, logFile });
   let killedBy = null;
   const timers = [];
-  if (timeoutSec > 0) {
-    timers.push(setTimeout(() => {
-      if (killedBy) return;
+  // The limit counts time awake. A machine that sleeps (a closed laptop lid) freezes the engine too; charging that
+  // time to the run would report a healthy run as hung. A gap between ticks far longer than the tick is a sleep.
+  let slept = 0;
+  let awake = 0;
+  let last = Date.now();
+  timers.push(setInterval(() => {
+    const now = Date.now();
+    const gap = (now - last) / 1000;
+    last = now;
+    if (gap > 20) { slept += gap; return; }
+    awake += gap;
+    if (timeoutSec > 0 && awake > timeoutSec && !killedBy) {
       killedBy = 'timeout';
-      console.error(`${label}: pid ${child.pid} still running after ${timeoutSec}s, stopping it`);
+      console.error(`${label}: pid ${child.pid} still running after ${timeoutSec}s awake, stopping it`);
       killTree(child.pid);
-    }, timeoutSec * 1000));
-  }
+    }
+  }, 1000));
   if (exitGraceSec > 0 && logFile) {
     let exitSeen = 0;
     timers.push(setInterval(() => {
@@ -281,7 +294,8 @@ export async function runUnreal(cfg, file, args, { logFile, cwd = cfg.proj, time
   const r = await done;
   slot.release();
   for (const t of timers) { clearTimeout(t); clearInterval(t); }
-  return { ...r, killedBy };
+  if (slept) console.error(`${label}: the machine slept for ${Math.round(slept)}s during this run; that time is not counted against the timeout`);
+  return { ...r, killedBy, slept: Math.round(slept) };
 }
 
 /** Log text: the redirected stdout plus, on Windows, the -abslog file. Missing files read as empty. */

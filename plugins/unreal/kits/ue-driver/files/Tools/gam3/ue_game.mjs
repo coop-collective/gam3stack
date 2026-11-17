@@ -43,7 +43,7 @@ async function main(argv) {
   if (a.grep) console.log(grepLines(text, new RegExp(a.grep), { max: 80 }).join('\n'));
   for (const [kind, lines] of Object.entries(problems)) for (const l of lines) console.log(`${kind}: ${l}`);
   let shots = [];
-  try { shots = fs.readdirSync(shotsDir).filter(mine).sort().map((n) => path.join(shotsDir, n)); } catch { /* none */ }
+  if (a.shots) { try { shots = fs.readdirSync(shotsDir).filter(mine).sort().map((n) => path.join(shotsDir, n)); } catch { /* none */ } }
   for (const s of shots) console.log(s);
   const wanted = a.shots ? String(a.shots).split(',').length : 0;
   const rd = readiness(text);
@@ -54,7 +54,7 @@ async function main(argv) {
   // Captures only count when the level was ready. Without the ready-gate kit there is no way to know: say so.
   const readyOk = rd.ready === 'ok' || (rd.ready === 'none' && !wanted);
   const ok = !problems.material.length && !problems.fatal.length && shots.length >= wanted && r.killedBy !== 'timeout' && readyOk && !rd.bindPose.length;
-  console.log(`GAM3GAME: ${ok ? 'ok' : 'FAILED'} ${r.seconds.toFixed(1)}s profile=${prof.name} ready=${rd.ready} shots=${shots.length}/${wanted} bind_pose=${rd.bindPose.length} hitches=${rd.hitches.length} late_compile=${rd.lateCompile} material_errors=${problems.material.length} fatal=${problems.fatal.length}${r.killedBy ? ` stopped=${r.killedBy}` : ''} log=${log}`);
+  console.log(`GAM3GAME: ${ok ? 'ok' : 'FAILED'} ${r.seconds.toFixed(1)}s profile=${prof.name} ready=${rd.ready} shots=${shots.length}/${wanted} bind_pose=${rd.bindPose.length} hitches=${rd.hitches.length} late_compile=${rd.lateCompile} material_errors=${problems.material.length} fatal=${problems.fatal.length}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} log=${log}`);
   return ok ? 0 : 1;
 }
 
