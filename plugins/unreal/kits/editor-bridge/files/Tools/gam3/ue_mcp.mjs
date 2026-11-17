@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Call the running editor's own MCP server (the engine's experimental "Unreal MCP" plugin) from the shell.
-// Start the editor with ue_editor.mjs first. Port: --port, else env UE_MCP_PORT, else 8123.
+// Start the editor with ue_editor.mjs first. Port: --port, else env UE_MCP_PORT, else the one in .gam3/env.json
+// (a dedicated environment made by env.mjs), else 8123.
 //
 //   node Tools/gam3/ue_mcp.mjs toolsets                              names and one-line descriptions
 //   node Tools/gam3/ue_mcp.mjs describe <Toolset> [...]              the tools of a toolset
@@ -21,8 +22,11 @@ const PY_TOOLSET = process.env.UE_MCP_PY_TOOLSET || 'editor_toolset.toolsets.pyt
 const PY_TOOL = process.env.UE_MCP_PY_TOOL || 'execute_python';
 const CAPTURE_TOOLSET = process.env.UE_MCP_CAPTURE_TOOLSET || 'SceneCaptureToolset.SceneCaptureToolset';
 
+function envPort() {
+  try { return JSON.parse(fs.readFileSync(new URL('../../.gam3/env.json', import.meta.url), 'utf8')).port; } catch { return undefined; }
+}
 export function mcpUrl(port) {
-  return `http://127.0.0.1:${Number(port) || 8123}/mcp`;
+  return `http://127.0.0.1:${Number(port) || envPort() || 8123}/mcp`;
 }
 
 async function post(url, body, session, timeoutMs) {

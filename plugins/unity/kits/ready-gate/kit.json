@@ -1,0 +1,27 @@
+{
+  "name": "ready-gate",
+  "engine": "unity",
+  "version": "0.1.0",
+  "summary": "Runtime code for the game itself: a loading gate that opens only when the world is ready to be seen, a spawn that never shows a character in bind pose, and captures of the first frames to prove both.",
+  "requires": [
+    "unity-driver"
+  ],
+  "params": {},
+  "adapt": [
+    "Let Unity create the .meta files (the next compile does it) and commit them with the scripts.",
+    "Start the game's loading flow with ReadyGate.Begin(cover) and put the game's own conditions behind it: player spawned and posed, camera placed, generated content done.",
+    "Replace Instantiate with Spawn.Posed for every animated character, and call Spawn.ShowWhenPosed when taking one from a pool.",
+    "Add the level's ShaderVariantCollection assets to gate.shaderWarmUp; without one there is nothing to warm up and first-use shader hitches remain.",
+    "Capture the first frames with FirstFrames.AfterGate and look at them before calling the loading flow done."
+  ],
+  "verify": [
+    "node Tools/gam3/unity_run.mjs compile --profile blind",
+    "node Tools/gam3/unity_run.mjs test --platform PlayMode --filter Gam3.Tests --profile agent"
+  ],
+  "verified": {
+    "engine": "Unity 6000.6.5f1",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "Play-mode tests run in batch mode with unity_run.mjs under blind, agent and human: 10 tests in Gam3.Tests, all passed (the FirstFrames test is skipped under blind). They cover: the cover stays up while a hold is out and drops when the gate opens; conditions, a tracked AsyncOperation and settled frames; the timeout opens the gate and names what it waited for; FirstFrames writes one PNG per frame; a plain Instantiate in LateUpdate is measured in bind pose on its first visible frame (the control); Spawn.Posed is measured in the animated pose on that frame, also with a culled Animator; a pooled object restarts from the first frame; an object with no controller stays hidden until it has one, and is shown with a warning after giveUpSeconds. In the test project, three more tests (not shipped): the gate waited for a real additive async load of a terrain scene and the first frames after it were captured and looked at; a frame hitch restarted the settled count. Not run: a built player, the texture streaming wait and the shader warm-up step (the project had neither), URP, HDRP, a real skinned character (the rig is a generated one-bone Animator), Windows, Linux."
+  }
+}

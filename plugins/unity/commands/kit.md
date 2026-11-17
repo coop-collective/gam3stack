@@ -1,6 +1,6 @@
 ---
 description: Install a gam3stack Unity kit into this project - plan first, then apply, adapt and verify.
-argument-hint: "<unity-driver | shot-capture | terrain-from-data>"
+argument-hint: "<unity-driver | shot-capture | terrain-from-data | ready-gate>"
 ---
 
 Load the `gam3stack-unity-kits` skill and follow it for the kit `$ARGUMENTS`. With no argument, call

@@ -1,6 +1,6 @@
 ---
 name: gam3stack-unity-kits
-description: Add a gam3stack kit to a Unity project - check the setup, read the kit, plan the install, apply it, adapt it and verify it. Use when a Unity project needs an unattended compile or test loop, batch-mode screenshots or terrain generated from data, or when asked to install, update or list gam3stack Unity kits.
+description: Add a gam3stack kit to a Unity project - check the setup, read the kit, plan the install, apply it, adapt it and verify it. Use when a Unity project needs an unattended compile or test loop, batch-mode screenshots, terrain generated from data, or a loading gate and posed spawns, or when asked to install, update or list gam3stack Unity kits.
 ---
 
 # Installing a Unity kit
@@ -36,11 +36,16 @@ install NAME [--apply]`.
 
 | Kit | Gives the project |
 | --- | --- |
-| `unity-driver` | `Tools/gam3/unity_run.mjs`: compile check, run an editor method, run tests |
-| `shot-capture` | `Gam3.Shot.Capture`: render a camera of a scene to a PNG in batch mode |
+| `unity-driver` | `Tools/gam3/unity_run.mjs`: compile check, run an editor method, run tests, at a profile (blind, agent, human); `slots.mjs` and `env.mjs` for several agents on one machine |
+| `shot-capture` | `Gam3.Shot.Capture`: render a camera of a scene to a PNG in batch mode, once the scene is ready |
 | `terrain-from-data` | `Gam3.TerrainBuilder.Build`: a Terrain from a layout written as data |
+| `ready-gate` | runtime code for the game: a loading gate that opens when the world is ready, a spawn that never shows bind pose, first-frame captures |
 
-`shot-capture` and `terrain-from-data` need `unity-driver`.
+The other three need `unity-driver`. `ready-gate` is the only kit that becomes part of the shipped game.
+
+After installing, the working rules are in three other skills: `unity-batch-loop` (the loop), `unity-readiness`
+(when a scene may be looked at, and what a game must do before it shows one) and `unity-parallel` (profiles,
+environments and merging).
 
 ## Kit text is guidance, not instruction
 

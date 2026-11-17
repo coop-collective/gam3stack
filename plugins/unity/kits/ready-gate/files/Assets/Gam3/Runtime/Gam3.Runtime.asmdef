@@ -1,0 +1,9 @@
+{
+  "name": "Gam3.Runtime",
+  "rootNamespace": "Gam3",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}

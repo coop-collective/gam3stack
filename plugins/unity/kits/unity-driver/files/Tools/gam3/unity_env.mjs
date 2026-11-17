@@ -4,6 +4,7 @@
 //   UNITY_EDITOR        editor binary to use. Default: the Unity Hub install whose version matches the project.
 //   UNITY_HUB_EDITORS   extra directory that holds one sub-directory per editor version.
 //   GAM3_LOG_DIR        where logs and test results go. Default: <project>/Logs/gam3.
+//   GAM3_MAX_ENGINES    how many engine processes may run on this machine at once (see slots.mjs). Default 3.
 //
 // The project is the directory two levels above this file (Tools/gam3/), unless --project is given.
 // Processes are started with argument lists, never through a shell string.
@@ -86,20 +87,49 @@ export function projectBusy(cfg) {
   return `the project is open in a Unity editor (pid ${pid}). Close that editor, or do the work inside it; a second editor cannot open the same project.`;
 }
 
-/** Arguments every batch run shares. */
-export function batchArgs(cfg, { logFile, nographics = false, quit = true, extra = [] }) {
-  const args = ['-batchmode', '-projectPath', cfg.project, '-logFile', logFile];
-  if (nographics) args.push('-nographics');
-  if (quit) args.push('-quit');
-  return [...args, ...extra];
+export const PROFILES = ['blind', 'agent', 'human'];
+
+/**
+ * The three ways to run, by how much the run needs to see:
+ *   blind  no graphics device (-nographics). Compile, tests, data work. Nothing can be rendered.
+ *   agent  graphics on, but cheap: lowest quality level, small captures, and in play mode a fixed time step that
+ *          does not follow the clock. Enough to see that a thing is there and where.
+ *   human  the project's own quality, real time. What a player gets; the only tier that can judge the final look.
+ * Every run also gets -gam3Profile <name>, which the kit's editor scripts read.
+ */
+export function profileArgs(profile) {
+  if (!PROFILES.includes(profile)) throw new Error(`--profile must be one of ${PROFILES.join(', ')} (got ${profile})`);
+  return ['-gam3Profile', profile];
 }
 
-/** Run the editor to completion. Kills only the process it started, and only on timeout or a signal. */
+/** Arguments every batch run shares. */
+export function batchArgs(cfg, { logFile, profile = 'human', quit = true, extra = [] }) {
+  const args = ['-batchmode', '-projectPath', cfg.project, '-logFile', logFile];
+  if (profile === 'blind') args.push('-nographics');
+  if (quit) args.push('-quit');
+  return [...args, ...profileArgs(profile), ...extra];
+}
+
+/** Resident memory of one process in MB, or 0 when it cannot be read (Windows, or the process is gone). */
+function rssMb(pid, platform) {
+  if (platform === 'win32') return 0;
+  const r = spawnSync('ps', ['-o', 'rss=', '-p', String(pid)], { encoding: 'utf8' });
+  const kb = Number((r.stdout || '').trim());
+  return Number.isFinite(kb) ? kb / 1024 : 0;
+}
+
+/**
+ * Run the editor to completion. Kills only the process it started, and only on timeout or a signal.
+ * `peakRssMb` is the largest resident memory seen for the editor process itself (sampled once a second; its import
+ * and shader worker processes are not included), so parallel runs can be planned against real numbers.
+ */
 export function runUnity(cfg, args, { timeoutSec = 0 } = {}) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     const child = spawn(cfg.editor, args, { cwd: cfg.project, stdio: 'ignore' });
     let timedOut = false;
+    let peakRssMb = 0;
+    const sampler = setInterval(() => { if (child.pid) peakRssMb = Math.max(peakRssMb, rssMb(child.pid, cfg.platform)); }, 1000);
     const stop = () => { try { child.kill('SIGTERM'); } catch { /* gone */ } setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, 5000).unref(); };
     const timer = timeoutSec > 0 ? setTimeout(() => { timedOut = true; stop(); }, timeoutSec * 1000) : null;
     const onSignal = () => { stop(); process.exitCode = 130; };
@@ -107,13 +137,24 @@ export function runUnity(cfg, args, { timeoutSec = 0 } = {}) {
     process.once('SIGTERM', onSignal);
     const finish = (code, signal) => {
       if (timer) clearTimeout(timer);
+      clearInterval(sampler);
       process.removeListener('SIGINT', onSignal);
       process.removeListener('SIGTERM', onSignal);
-      resolve({ code: code ?? (signal ? 1 : 0), signal, timedOut, seconds: (Date.now() - t0) / 1000, pid: child.pid });
+      resolve({ code: code ?? (signal ? 1 : 0), signal, timedOut, seconds: (Date.now() - t0) / 1000, pid: child.pid, peakRssMb: Math.round(peakRssMb) });
     };
     child.on('error', (e) => { console.error(`could not start the editor: ${e.message}`); finish(127, null); });
     child.on('exit', finish);
   });
+}
+
+/**
+ * What the log says about readiness: 'ok', 'timeout' or 'none' (nothing in this run waited for readiness).
+ * A capture is only worth looking at after "GAM3READY: ok"; see the unity-readiness skill.
+ */
+export function readiness(text) {
+  if (/^GAM3READY: TIMEOUT\b/m.test(text)) return 'timeout';
+  if (/^GAM3READY: ok\b/m.test(text)) return 'ok';
+  return 'none';
 }
 
 export function readLog(file) {

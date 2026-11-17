@@ -4,6 +4,7 @@
 #include "Camera/CameraComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Gam3ReadyGate.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/CommandLine.h"
@@ -87,9 +88,18 @@ void UGam3ShotDirector::HoldCamera(UWorld* World)
 bool UGam3ShotDirector::Tick(float DeltaSeconds)
 {
 	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
-	if (!World || !World->HasBegunPlay()) return true;   // the clock starts when the level does
+	if (!World || !World->HasBegunPlay()) return true;
 
 	if (bFixedCamera) HoldCamera(World);
+	// The clock starts when the level is ready to be looked at, not when it begins play: a capture of a level that
+	// is still compiling shaders or streaming in is a picture of loading.
+	UGam3ReadyGate* Gate = World->GetSubsystem<UGam3ReadyGate>();
+	if (Gate)
+	{
+		Gate->FadeInSeconds = 0.f;   // a capture at 0 must show the first frame, not a fade
+		if (!Gate->IsReady()) return true;
+	}
+	if (++ReadyFrames <= 2) return true;   // the cover comes off on the camera's next update
 	// A long hitch (shader compiles on a first run) must not swallow the timeline: no frame counts for more than this.
 	Elapsed += FMath::Min(DeltaSeconds, 0.25f);
 	++FramesSinceShot;

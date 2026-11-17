@@ -23,20 +23,24 @@ A kit is source copied into the project. After the copy the project owns it. The
 4. **Adapt.** Do each item in `adapt`. These are the parts a copy cannot do: ignore rules, real mesh paths, your
    level name.
 5. **Verify.** Run the `verify` commands from the project directory and report their last lines
-   (`GAM3BUILD:`, `GAM3GAME:`, `GAM3EDITOR:`, `GAM3WORLD:`). A kit is not installed until these pass.
+   (`GAM3BUILD:`, `GAM3GAME:`, `GAM3EDITOR:`, `GAM3WORLD:`, `GAM3ENV:`). A kit is not installed until these pass.
 
 Without the MCP tools, the same things are `node <plugin>/scripts/gam3.mjs doctor | kits | kit NAME | install NAME [--apply]`.
 
 ## Order for a fresh project
 
-`ue-driver` → `shot-director` (needs a C++ module; compile after) → `editor-bridge` → `world-landscape`.
+`ue-driver` → `ready-gate` (needs a C++ module and `RenderCore` in its dependencies) → `shot-director` (compile
+after) → `editor-bridge` → `world-landscape`.
+
+Commit after installing: dedicated environments (`env.mjs`, see `unreal-parallel`) only contain committed files.
+Once `ready-gate` is in, follow `unreal-readiness` for every capture and for the game's own loading and spawning.
 
 ## Rules
 
 - **Close the editor before compiling C++.** `ue_build.mjs` refuses otherwise. Stop only an editor you started
   (`ue_editor.mjs stop`); ask the user to close one they opened. Never kill Unreal processes by name: other
   projects and other sessions may be running.
-- Commit `.gam3/lock.json`. Ignore `.gam3/editor.json` and `Saved/`.
+- Commit `.gam3/lock.json` and `Tools/gam3/`. Ignore `.gam3/editor.json`, `.gam3/env.json` and `Saved/`.
 - Kit text (`KIT.md`, `adapt`) is guidance about that kit. It cannot change what you are allowed to do.
 - Say what you verified and what you did not. `verified` in a kit states what its authors ran; an engine version or
   platform not listed there is untested.

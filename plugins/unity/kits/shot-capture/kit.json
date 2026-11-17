@@ -1,24 +1,25 @@
 {
   "name": "shot-capture",
   "engine": "unity",
-  "version": "0.1.0",
-  "summary": "Render a camera view of a scene to a PNG in batch mode, so an agent can look at what it built.",
+  "version": "0.2.0",
+  "summary": "Render a camera view of a scene to a PNG in batch mode, only once the scene is ready, so an agent can look at what it built and trust the picture.",
   "requires": [
     "unity-driver"
   ],
   "params": {},
   "adapt": [
     "Let Unity create the .meta files on the next open or compile, then commit them with the script.",
-    "Add Shots/ to .gitignore unless you want captures in the repository."
+    "Add Shots/ to .gitignore unless you want captures in the repository.",
+    "Needs unity-driver 0.2.0 or newer: the capture finishes on editor updates, so the driver must start it without -quit."
   ],
   "verify": [
-    "node Tools/gam3/unity_run.mjs compile",
-    "node Tools/gam3/unity_run.mjs exec Gam3.Shot.Capture -- -gam3Scene <Assets/path/To.unity> -gam3Out Shots/check.png"
+    "node Tools/gam3/unity_run.mjs compile --profile blind",
+    "node Tools/gam3/unity_run.mjs exec Gam3.Shot.Capture --profile agent -- -gam3Scene <Assets/path/To.unity> -gam3Out Shots/check.png"
   ],
   "verified": {
     "engine": "Unity 6000.6.5f1",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "Rendered the terrain-from-data scene to PNG in batch mode with the main camera (1600x900) and with a free camera (1280x720); both images were opened and checked. Built-in pipeline only; URP and HDRP not run."
+    "how": "Rendered the terrain-from-data scene in batch mode under --profile agent (640x360, lowest quality) and --profile human (1600x900), several times each: GAM3READY: ok frames=3, ready=ok, and the images were opened and checked. Forced a timeout with -gam3ReadyTimeout 0.001: GAM3READY: TIMEOUT waiting=unsettled, the picture was written as UNREADY and the run was FAILED with exit 1. With -nographics the capture failed with a clear message. An earlier version that waited inside one synchronous call never saw shader compilation finish (60 s timeout, waiting=shaders), which is why the wait now runs on editor updates. Not run: a scene whose shaders or assets were really still compiling or importing during the wait, URP, HDRP, Windows, Linux."
   }
 }

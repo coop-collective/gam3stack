@@ -3,6 +3,9 @@
 //   node Tools/gam3/ue_editor.mjs start [--port 8123] [--map /Game/Maps/L_Level] [--toolsets A,B] [--wait 900] [-- extra engine args]
 //   node Tools/gam3/ue_editor.mjs status [--port 8123]
 //   node Tools/gam3/ue_editor.mjs stop
+// The port defaults to the one in .gam3/env.json (a dedicated environment made by env.mjs), else UE_MCP_PORT, else 8123.
+// The editor takes an engine slot (slots.mjs) for as long as it runs. An editor left in the background costs little
+// processor time (it throttles itself) but keeps its memory, so stop it when the work is done.
 // start returns when the editor answers a tool call, which can take minutes on a first run (shader compiles).
 // stop ends only the editor this script started (its PID is in .gam3/editor.json), never another editor.
 // Then it checks the port: a crash reporter left behind by a killed editor can keep holding it, and the next
@@ -11,6 +14,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { checkMap, killTree, parseArgs, runMain, sleep, start, ueConfig } from './ue_env.mjs';
+import { acquireSlot } from './slots.mjs';
 import { tool } from './ue_mcp.mjs';
 
 const DEFAULT_TOOLSETS = 'EditorToolset,SceneCaptureToolset,PCGToolset,ConsoleToolset,GeometryToolset';
@@ -38,8 +42,12 @@ async function answers(port) {
   } catch { return false; }
 }
 
+function defaultPort(cfg) {
+  try { return JSON.parse(fs.readFileSync(path.join(cfg.proj, '.gam3', 'env.json'), 'utf8')).port; } catch { return undefined; }
+}
+
 async function cmdStart(cfg, a) {
-  const port = Number(a.port || process.env.UE_MCP_PORT || 8123);
+  const port = Number(a.port || defaultPort(cfg) || process.env.UE_MCP_PORT || 8123);
   const prev = readState(cfg);
   if (prev && alive(prev.pid)) {
     console.log(`GAM3EDITOR: already running pid=${prev.pid} port=${prev.port}`);
@@ -54,8 +62,10 @@ async function cmdStart(cfg, a) {
   const args = [cfg.uproject];
   if (a.map) args.push(checkMap(a.map));
   args.push(`-ModelContextProtocolPort=${port}`, `-EnablePlugins=${a.toolsets || DEFAULT_TOOLSETS}`, `-abslog=${log}`, ...a.rest);
+  const slot = await acquireSlot({ label: 'ue_editor' });
   const { child } = start(cfg.editor, args, { cwd: cfg.proj, logFile: path.join(cfg.logDir, 'editor.stdout.log'), detached: true });
   child.unref();
+  slot.handOver(child.pid);   // the slot is the editor's for as long as it lives
   fs.mkdirSync(path.dirname(stateFile(cfg)), { recursive: true });
   fs.writeFileSync(stateFile(cfg), JSON.stringify({ pid: child.pid, port, log, started: new Date().toISOString() }, null, 2) + '\n');
   const deadline = Date.now() + Number(a.wait ?? 900) * 1000;
@@ -76,7 +86,7 @@ async function cmdStart(cfg, a) {
 
 async function cmdStatus(cfg, a) {
   const st = readState(cfg);
-  const port = Number(a.port || st?.port || process.env.UE_MCP_PORT || 8123);
+  const port = Number(a.port || st?.port || defaultPort(cfg) || process.env.UE_MCP_PORT || 8123);
   const running = !!st && alive(st.pid);
   const holders = portHolders(port);
   const ok = await answers(port);

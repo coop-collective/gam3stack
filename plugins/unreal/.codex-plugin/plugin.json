@@ -1,25 +1,45 @@
 {
   "name": "unreal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Unreal Engine kits and skills: script an open editor, build levels from data with Landscape and PCG, compile and capture the game unattended.",
-  "author": { "name": "Xava Labs" },
+  "author": {
+    "name": "Xava Labs"
+  },
   "license": "MIT",
-  "keywords": ["gam3stack", "unreal", "ue5", "gamedev", "mcp", "kits", "skills"],
+  "keywords": [
+    "gam3stack",
+    "unreal",
+    "ue5",
+    "gamedev",
+    "mcp",
+    "kits",
+    "skills"
+  ],
   "skills": "./skills/",
   "mcpServers": {
-    "gam3stack-unreal": { "command": "node", "args": ["./scripts/gam3.mjs", "mcp"] }
+    "gam3stack-unreal": {
+      "command": "node",
+      "args": [
+        "./scripts/gam3.mjs",
+        "mcp"
+      ]
+    }
   },
   "interface": {
     "displayName": "gam3stack Unreal",
     "shortDescription": "Script the editor, build worlds from data, capture the real game",
-    "longDescription": "Kits are source copied into your Unreal project: shell drivers to compile C++ and run the game unattended, a bridge to an open editor, scripted screenshots from the game, and a level builder that makes terrain, paint layers and scatter from one data file. Skills teach the working loop and its pitfalls.",
+    "longDescription": "Kits are source copied into your Unreal project: shell drivers to compile C++ and run the game unattended at three levels of cost, a ready gate so neither a capture nor a player sees a level that is still loading or a character in its bind pose, a bridge to an open editor, scripted screenshots, dedicated environments for subagents, and a level builder that makes terrain, paint layers and scatter from one data file. Skills teach the working loop and its pitfalls.",
     "developerName": "Xava Labs",
     "category": "Developer Tools",
-    "capabilities": ["Interactive", "Read", "Write"],
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": [
       "Use $gam3stack-unreal-kits to set this project up for unattended builds and screenshots.",
       "Use $unreal-editor-loop to make this change and show me a screenshot from the game.",
-      "Use $unreal-worlds to build a grassy plain with a dirt road and scattered rocks."
+      "Use $unreal-readiness to check what a player sees in the first seconds of this level."
     ],
     "brandColor": "#3D7A4F"
   }

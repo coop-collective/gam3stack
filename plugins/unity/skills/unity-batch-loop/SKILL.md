@@ -12,25 +12,45 @@ agent. The `unity-driver` kit wraps it; install it first if `Tools/gam3/unity_ru
 ## The loop
 
 1. Edit C#.
-2. `node Tools/gam3/unity_run.mjs compile`. Read the last line.
+2. `node Tools/gam3/unity_run.mjs compile --profile blind`. Read the last line.
    - `GAM3UNITY: ok compile errors=0 ...`: go on.
    - `FAILED`: the lines above it are the compiler errors, as `Assets/Path/File.cs(line,col): error CS####: ...`.
      Fix those and run again. Do not run anything else until this passes: with compile errors Unity loads none
      of the project's scripts, so every later failure is noise.
 3. Run the thing you changed:
    - an editor method: `node Tools/gam3/unity_run.mjs exec Namespace.Class.Method -- -arg value`
-   - tests: `node Tools/gam3/unity_run.mjs test` (EditMode), or `--mode PlayMode`
+   - tests: `node Tools/gam3/unity_run.mjs test --profile blind` (EditMode), or `--platform PlayMode`
+   - a picture: `node Tools/gam3/unity_run.mjs exec Gam3.Shot.Capture --profile agent -- ...` (kit `shot-capture`)
 4. Say what ran and paste the `GAM3UNITY:` line. If you did not run it, say that instead.
 
-Typical times on a small project: 5 seconds for a compile check, 5 to 8 for a method or an EditMode test run.
+Typical times on a small project: 5 to 7 seconds for a compile check, a test run or a capture.
 The first open of a project (no `Library/` folder yet) imports everything and can take minutes.
+
+## Use the cheapest profile that can see enough
+
+`--profile blind` has no graphics device: right for compiling, for EditMode tests and for PlayMode tests of
+logic, which then run on a fixed time step far faster than real time. `--profile agent` renders small and at
+the lowest quality: right for "is it there and where". `--profile human` (the default) is the project's real
+quality in real time: the only one that can judge the look or the feel. The `unity-parallel` skill has the
+full table, and the way to run several agents at once, each in its own environment.
+
+## Never judge a picture that was not ready
+
+A capture's result line says `ready=ok` or `ready=timeout`. With `ready=timeout` the run is `FAILED` and the
+picture shows a half-loaded scene: diagnose it, do not describe it. The same care applies to the game you are
+building: a loading cover until the world is ready, and no character drawn in bind pose. The `unity-readiness`
+skill has both sets of rules; follow it whenever you capture, or touch a load, a spawn or a pool.
 
 ## Rules
 
 - **One editor per project.** If a person has the project open, the driver stops with `reason=project-open`.
   Do not close their editor and do not kill Unity processes you did not start. Ask them to close it, or have
   them run the menu item instead.
-- **Do not copy the project to get around the lock** unless asked. Two copies drift apart.
+- **Do not copy the project to get around the lock.** Two copies drift apart. When several agents need their
+  own editor, make environments with `node Tools/gam3/env.mjs create NAME` (a git worktree with `Library/`
+  cloned) and merge them back; see the `unity-parallel` skill.
+- **The machine has a cap.** Every run takes a slot and waits while `GAM3_MAX_ENGINES` (default 3) engines are
+  running. A run that prints `slots: waiting ...` is queued, not stuck. Do not raise the cap yourself.
 - **Never pick a different editor version on your own.** Opening a project with a newer editor upgrades it,
   and that is hard to undo. If the matching version is missing, say so.
 - **`.meta` files are source.** Unity creates one per asset. When you add, move or delete an asset from the
@@ -66,8 +86,9 @@ public static class BuildTools            // in a folder named Editor
 - The driver prints log lines that start with `GAM3`. Put results there, not in a long dump.
 - The run fails when the method throws or calls `EditorApplication.Exit` with a non-zero code.
 - The job must finish inside the method. Batch mode with `-quit` exits when the method returns, so a
-  coroutine or `EditorApplication.update` callback started there never runs. Work that needs frames belongs in
-  a PlayMode test.
+  coroutine or `EditorApplication.update` callback started there never runs. A method that has to wait for
+  editor updates (shaders, imports) runs with `exec --stay` and ends the run itself with
+  `EditorApplication.Exit(n)`. Work that needs game frames belongs in a PlayMode test.
 
 ## Reading a failure
 
@@ -80,8 +101,10 @@ The full editor log is at the path after `log=`. It is long; search it, do not r
 | `executeMethod method X threw exception` | the exception is named on the line above it |
 | `another Unity instance is running with this project open` | an editor holds the project |
 | licence lines near the top | no licence on this machine; a person must sign in with Unity Hub |
+| `GAM3READY: TIMEOUT waiting=...` | the scene was not ready when captured; see the `unity-readiness` skill |
+| `reason=blind-cannot-capture` | a capture was asked for under `--profile blind`; use `agent` or `human` |
 
 ## Not verified here
 
-PlayMode test runs, Windows and Linux were not run when this kit was made (see `verified` in the kit).
-Treat the first run on those as a test of the driver itself.
+Windows, Linux, URP and HDRP were not run when this kit was made (see `verified` in the kit). Treat the first
+run on those as a test of the driver itself.

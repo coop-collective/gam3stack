@@ -1,0 +1,35 @@
+{
+  "name": "ready-gate",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Runtime code for the game itself: a cover until the level is actually ready (nothing compiling or loading, player spawned), and characters that are never shown in their bind pose. Unattended runs use the same gate to know when a capture means anything.",
+  "requires": [
+    "ue-driver"
+  ],
+  "params": {
+    "MODULE": {
+      "description": "The C++ game module the two source files join (the directory under Source/)."
+    },
+    "MODULE_API": {
+      "description": "That module's export macro, for example MYGAME_API."
+    }
+  },
+  "adapt": [
+    "Add \"RenderCore\" to PublicDependencyModuleNames in Source/<Module>/<Module>.Build.cs (the gate asks the pipeline cache what is still compiling).",
+    "Close the editor, then compile: node Tools/gam3/ue_build.mjs",
+    "After every place the game spawns or re-dresses a character, call UGam3ReadyGate::ShowActorWhenPosed(Character).",
+    "Start match time, music and intros from OnReady, not BeginPlay: time must not pass behind the cover.",
+    "Wrap the game's own loading (save file, procedural level, server handshake) in AddBlocker / RemoveBlocker.",
+    "If the game has its own loading screen, set bCoverWithFade=False under [/Script/<Module>.Gam3ReadyGate] in Config/DefaultGame.ini and remove the screen in OnReady."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_build.mjs",
+    "node Tools/gam3/ue_game.mjs --profile blind --quit 2   (the summary line must say ready=ok and bind_pose=0)"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "Compiled into a fresh C++ project. The gate opened (GAM3READY: ok) under the blind, agent and human profiles. A blocker that was never removed gave GAM3READY: TIMEOUT waiting=blocker:... after the set 4 s and a FAILED run. A test character whose animation was assigned half a second after it spawned: without the gate the watch logged 'bind-pose visible ... frames=15 before it animated' and the run failed, and the capture showed the bind pose; with ShowActorWhenPosed nothing was logged, the capture at the same moment showed no character, and the next showed it walking. Not run: a packaged or Shipping build, the pipeline-state wait, World Partition and level streaming waits, a custom loading screen, Blueprint use, Windows and Linux."
+  }
+}

@@ -1,21 +1,23 @@
 {
   "name": "unity-driver",
   "engine": "unity",
-  "version": "0.1.0",
-  "summary": "Run the Unity editor unattended from the shell: compile check, run an editor method, run tests, with errors pulled out of the log.",
+  "version": "0.2.0",
+  "summary": "Run the Unity editor unattended from the shell: compile check, run an editor method, run EditMode and PlayMode tests, at a chosen profile (blind, agent, human), with a machine-wide cap on engines and dedicated environments for parallel work.",
   "requires": [],
   "params": {},
   "adapt": [
     "Add Logs/ to .gitignore if it is not there already (Unity's own template ignores it).",
-    "For `test`: the project needs com.unity.test-framework in Packages/manifest.json and at least one test assembly."
+    "Let Unity create Gam3Profile.cs.meta (the next compile does it) and commit it with the script.",
+    "For `test`: the project needs com.unity.test-framework in Packages/manifest.json and at least one test assembly.",
+    "Use --profile blind for compile and for tests that do not read pixels; keep --profile human for the final look."
   ],
   "verify": [
-    "node Tools/gam3/unity_run.mjs compile"
+    "node Tools/gam3/unity_run.mjs compile --profile blind"
   ],
   "verified": {
     "engine": "Unity 6000.6.5f1",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "In a new built-in-pipeline project: compile passed, and failed with the error line when a broken script was added; exec passed arguments through, reported a thrown exception, a custom exit code and a missing method; EditMode tests reported 2 passed, then 1 failed by name; compile was refused while another editor held the project. Not run: PlayMode tests, Windows, Linux."
+    "how": "In a small built-in-pipeline project. 0.1.0 checks (compile ok and failed, exec arguments, exceptions, exit codes, missing method, EditMode tests, refusal while another editor holds the project) still hold. New in 0.2.0: compile, EditMode and PlayMode test runs under blind (-nographics), agent and human; under blind and agent a play-mode test measured 300 frames = 10.000 s of game time (fixed 1/30 s step), under human real time; the quality level dropped to the lowest under agent and ProjectSettings/QualitySettings.asset was byte-identical afterwards; a capture under blind was refused; --stay with a method that never exits was stopped by --timeout; a second run on the same project was refused while the first ran; two editors ran side by side on two environments made by env.mjs (Library cloned); with GAM3_MAX_ENGINES=1 the second run waited for the slot and then ran. Seconds and peak memory in KIT.md are from these runs. Two of about sixty runs took 79 s and 468 s instead of about 5 s while other engines were starting; they passed and the cause was not found. Not run: Windows, Linux, URP, HDRP, more than two editors at once."
   }
 }

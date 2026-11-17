@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copy core/*.mjs into each plugin's scripts/lib/. A plugin is installed on its own (the agent copies just its
+// Copy core/*.mjs into each plugin's scripts/lib/, and core/kit-shared/*.mjs into each plugin's driver kit. A plugin is installed on its own (the agent copies just its
 // directory), so it cannot import from the repository root. `--check` fails when a copy is stale; CI runs that.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +27,21 @@ for (const plugin of plugins) {
     stale++;
     if (check) console.error(`unexpected: plugins/${plugin}/scripts/lib/${f}`);
     else fs.rmSync(path.join(lib, f));
+  }
+}
+// Tools every engine's driver kit ships unchanged: the engine-slot cap and dedicated environments.
+const shared = fs.readdirSync(path.join(root, 'core', 'kit-shared')).filter((f) => f.endsWith('.mjs')).sort();
+for (const plugin of plugins) {
+  const kits = path.join(root, 'plugins', plugin, 'kits');
+  const driver = fs.readdirSync(kits).find((k) => k.endsWith('-driver'));
+  if (!driver) continue;
+  for (const f of shared) {
+    const want = fs.readFileSync(path.join(root, 'core', 'kit-shared', f), 'utf8');
+    const dest = path.join(kits, driver, 'files', 'Tools', 'gam3', f);
+    if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') === want) continue;
+    stale++;
+    if (check) console.error(`stale: plugins/${plugin}/kits/${driver}/files/Tools/gam3/${f} (run: npm run sync)`);
+    else fs.writeFileSync(dest, want);
   }
 }
 if (check && stale) process.exit(1);

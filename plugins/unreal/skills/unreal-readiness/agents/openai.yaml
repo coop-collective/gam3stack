@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: ready means ready"
+  short_description: "No captures of a loading level, no broken first seconds, no T-pose on spawn"
+  default_prompt: "Use $unreal-readiness to check what a player sees in the first seconds of this level and fix what is not ready."

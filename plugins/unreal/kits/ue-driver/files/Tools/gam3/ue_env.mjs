@@ -6,6 +6,9 @@
 //   UE_EDITOR      UnrealEditor binary (default under UE_ROOT)
 //   UE_BUILD       Build.sh / Build.bat (default under UE_ROOT/Engine/Build/BatchFiles)
 //   GAM3_LOG_DIR   where logs go (default <project>/Saved/Logs/gam3)
+//   GAM3_MAX_ENGINES
+//                  how many engine processes may run on this machine at once (default 3). Every editor and game
+//                  started here takes a slot first and waits when none is free: see slots.mjs.
 //   GAM3_RENDER_OFFSCREEN=1
 //                  no interactive desktop (an SSH session, a Windows service): game and editor runs add
 //                  -RenderOffscreen. Without it swapchain creation fails there and the engine exits.
@@ -18,6 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { acquireSlot } from './slots.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** The Unreal project directory. */
@@ -103,6 +107,30 @@ export function editorPythonArgs(cfg, script, logFile, scriptArgs = []) {
     '-unattended', '-nosplash', '-NoLoadStartupPackages', ...offscreenArgs(cfg), '-stdout', '-FullStdOutLogOutput',
     ...ueLogArgs(cfg, logFile),
   ];
+}
+
+/**
+ * How much of the engine a run needs: the three "eyes". Pick the cheapest one that can answer the question.
+ *   blind  no renderer at all (-nullrhi). Game logic, physics, loading and the log still work; nothing can be
+ *          captured. Game time runs on a fixed step, as fast as the machine allows.
+ *   agent  a small, cheap picture: 640x360, lighting quality lowered, fixed time step. Enough to see whether a
+ *          thing is there, where it is and roughly what colour. View distance, foliage and textures are NOT
+ *          lowered, so nothing that should be visible is culled. Never judge lighting, shadows or frame rate here.
+ *   human  what a player gets: full quality, real time. The only profile for sign-off on look, feel and speed.
+ * Under a fixed step every frame advances the game by exactly 1/fps seconds however long it took to compute, so a
+ * slow machine changes how long a run takes, never what happens in it.
+ */
+export const PROFILES = {
+  blind: { res: [320, 180], args: ['-nullrhi', '-nosound', '-UseFixedTimeStep', '-fps=30'], cmds: [], captures: false },
+  agent: {
+    res: [640, 360], args: ['-nosound', '-UseFixedTimeStep', '-fps=30'], captures: true,
+    cmds: ['sg.GlobalIlluminationQuality 0', 'sg.ReflectionQuality 0', 'sg.PostProcessQuality 0', 'sg.EffectsQuality 0', 'sg.ShadingQuality 0', 'sg.AntiAliasingQuality 0', 'sg.ShadowQuality 1'],
+  },
+  human: { res: [1920, 1080], args: [], cmds: [], captures: true },
+};
+export function profile(name = 'human') {
+  if (!PROFILES[name]) throw new Error(`unknown --profile ${name} (blind, agent or human)`);
+  return { name, ...PROFILES[name] };
 }
 
 /** A `-game` run of one map at exactly resx x resy. */
@@ -226,6 +254,7 @@ export function start(file, args, { cwd = PROJ, env = process.env, logFile, deta
  * exiting, the process gets `exitGraceSec` more, then it is killed (the editor sometimes hangs in teardown).
  */
 export async function runUnreal(cfg, file, args, { logFile, cwd = cfg.proj, timeoutSec = 0, exitGraceSec = 0, label = 'unreal' } = {}) {
+  const slot = await acquireSlot({ label });
   const { child, done } = start(file, args, { cwd, logFile });
   let killedBy = null;
   const timers = [];
@@ -250,6 +279,7 @@ export async function runUnreal(cfg, file, args, { logFile, cwd = cfg.proj, time
     }, 3000));
   }
   const r = await done;
+  slot.release();
   for (const t of timers) { clearTimeout(t); clearInterval(t); }
   return { ...r, killedBy };
 }
@@ -285,9 +315,25 @@ export function editorsOnProject(cfg) {
 /** What went wrong in an Unreal log, as short lists. Materials that fail to compile draw as flat grey and say so only here. */
 export function logProblems(text) {
   const material = grepLines(text, /Failed to compile Material|LogMaterial: (Error|Warning): .*(error|failed)|\[SM\d\] .*error/i, { max: 20 });
-  const fatal = grepLines(text, /Fatal error|Assertion failed|Ensure condition failed|LogOutputDevice: Error|Unhandled Exception/i, { max: 20 });
+  // Two engines starting at once race over the build tool's trace file; that one exception is noise, not a crash.
+  const fatal = grepLines(text, /Fatal error|Assertion failed|Ensure condition failed|LogOutputDevice: Error|Unhandled Exception/i, { exclude: /UnrealBuildTool[\\/]Trace\.uba/, max: 20 });
   const script = grepLines(text, /LogPython: Error|Traceback \(most recent call last\)/, { max: 20 });
   return { material, fatal, script };
+}
+
+/**
+ * What the ready-gate kit logged: whether the level became ready, and what a player would have seen go wrong after.
+ * ready is 'ok', 'timeout', or 'none' (no gate in this project, or the level never began play).
+ */
+export function readiness(text) {
+  const line = grepLines(text, /GAM3READY: (ok|TIMEOUT)/, { max: 1 })[0] || '';
+  const ready = /GAM3READY: ok/.test(line) ? 'ok' : /GAM3READY: TIMEOUT/.test(line) ? 'timeout' : 'none';
+  return {
+    ready, line: line.replace(/^.*GAM3READY: /, 'GAM3READY: '),
+    bindPose: grepLines(text, /GAM3WATCH: bind-pose visible|GAM3POSE: TIMEOUT/, { max: 20 }).map((l) => l.replace(/^.*(GAM3(WATCH|POSE): )/, '$1')),
+    lateCompile: grepLines(text, /GAM3WATCH: late-compile/).length,
+    hitches: grepLines(text, /GAM3WATCH: hitch/, { max: 20 }).map((l) => l.replace(/^.*GAM3WATCH: /, '')),
+  };
 }
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

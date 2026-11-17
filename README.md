@@ -3,14 +3,15 @@
 **Game development kits and skills for coding agents.** Unreal Engine and Unity, one plugin per engine.
 
 A coding agent can write game code, but it cannot see the game. gam3stack gives it the missing loop: compile,
-run the real game unattended, take screenshots, read the log for what broke, and build levels from data instead of
-by hand. Kits are source that is copied into your project. You own and edit it. MIT licensed, no account, no
+run the real game unattended, take screenshots once the level is actually ready, read the log for what broke, and
+build levels from data instead of by hand. It also carries the rules that are easy to skip when a game is built
+fast: no level shown while it is still loading, no character in its T-pose before it animates. Kits are source that is copied into your project. You own and edit it. MIT licensed, no account, no
 service, no telemetry.
 
 | Plugin | For | Kits |
 | --- | --- | --- |
-| `unreal@gam3stack` | Unreal Engine 5 | `ue-driver`, `editor-bridge`, `shot-director`, `world-landscape` |
-| `unity@gam3stack` | Unity 6 | `unity-driver`, `shot-capture`, `terrain-from-data` |
+| `unreal@gam3stack` | Unreal Engine 5 | `ue-driver`, `ready-gate`, `shot-director`, `editor-bridge`, `world-landscape` |
+| `unity@gam3stack` | Unity 6 | `unity-driver`, `ready-gate`, `shot-capture`, `terrain-from-data` |
 
 Install only the engine you use. The two plugins share nothing at run time.
 
@@ -77,12 +78,36 @@ unless you say so. Copying files is the start; the agent still adapts them to yo
 
 Both were built from the example data files and use placeholder colours and meshes: the point is the pipeline, not the art.
 
+## Three ideas in every kit
+
+**Ready means ready.** A level that has started is not yet fit to look at: shaders and textures are still arriving
+and characters have not been posed. The `ready-gate` kit holds a cover in the game until the level is ready, and
+every unattended run counts its screenshot times from that same moment. A capture at 0 is the first frame a player
+sees. A run whose level never became ready, or that drew a character in its bind pose, fails with the reason.
+
+**Use the cheapest eyes that answer the question.** Runs take a profile:
+
+| Profile | What runs | Good for |
+| --- | --- | --- |
+| `blind` | No renderer, fixed time step | Does it compile, load and run; logic; the log |
+| `agent` | A small, cheap picture, fixed time step | Is it there, where, what shape; the first frame |
+| `human` | Full quality, real time | Look, feel and speed: the sign-off |
+
+On a fixed time step the game advances the same amount every frame however long the frame took, so a busy machine
+changes how long a run takes and never what happens in it. With no renderer, 10 seconds of game time took 0.03 s
+in Unreal and 0.006 s in Unity on the test machine; what is left is engine start-up.
+
+**One subagent, one environment.** `Tools/gam3/env.mjs create NAME` makes a second checkout on its own branch with
+the engine's caches cloned copy-on-write and its own editor port, so agents do not compile under each other's
+editors. A machine-wide cap (`GAM3_MAX_ENGINES`, default 3) queues engine starts. `env.mjs status` marks binary
+assets changed on both sides before a merge, because git cannot merge those.
+
 ## What is in a plugin
 
 | Part | What it is |
 | --- | --- |
 | Kits | Scripts and engine source copied into the project: [kit format](docs/KIT-SPEC.md) |
-| Skills | How to work in the engine as an agent: the build-and-look loop, building worlds from data, the pitfalls |
+| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, parallel work in dedicated environments, building worlds from data |
 | MCP tools | `<engine>_doctor`, `<engine>_kits`, `<engine>_kit`, `<engine>_install` |
 | Commands | Short entry points for the above |
 
@@ -90,24 +115,28 @@ Both were built from the example data files and use placeholder colours and mesh
 
 | Kit | Gives the project |
 | --- | --- |
-| [`ue-driver`](plugins/unreal/kits/ue-driver/KIT.md) | Compile C++, run editor Python, run the game unattended with its log checked for failed materials and crashes |
+| [`ue-driver`](plugins/unreal/kits/ue-driver/KIT.md) | Compile C++, run editor Python, run the game unattended at three profiles with its log checked; dedicated environments and the engine cap |
 | [`editor-bridge`](plugins/unreal/kits/editor-bridge/KIT.md) | One editor kept open and called from the shell through the engine's own MCP plugin: Python, any editor tool, viewport captures |
-| [`shot-director`](plugins/unreal/kits/shot-director/KIT.md) | Screenshots from the real game at set times, optionally through a fixed camera, then quit |
+| [`ready-gate`](plugins/unreal/kits/ready-gate/KIT.md) | Game code: a cover until the level is ready, characters never shown in their bind pose, and the readiness signal unattended runs wait on |
+| [`shot-director`](plugins/unreal/kits/shot-director/KIT.md) | Screenshots from the real game at set times after it is ready, optionally through a fixed camera, then quit |
 | [`world-landscape`](plugins/unreal/kits/world-landscape/KIT.md) | A level from one data file: Landscape terrain, paint layers, PCG scatter, lighting; one command rebuilds it |
 
 ### Unity kits
 
 | Kit | Gives the project |
 | --- | --- |
-| [`unity-driver`](plugins/unity/kits/unity-driver/KIT.md) | Batch-mode compile check with the compiler errors, run a static method, run tests and summarise the results |
-| [`shot-capture`](plugins/unity/kits/shot-capture/KIT.md) | Render a scene's camera to a PNG in batch mode |
+| [`unity-driver`](plugins/unity/kits/unity-driver/KIT.md) | Batch-mode compile check with the compiler errors, run a static method, run EditMode and PlayMode tests, at three profiles; dedicated environments and the engine cap |
+| [`ready-gate`](plugins/unity/kits/ready-gate/KIT.md) | Game code: a loading cover until the scene is ready, and spawned characters never shown in their bind pose |
+| [`shot-capture`](plugins/unity/kits/shot-capture/KIT.md) | Render a scene's camera to a PNG in batch mode, once the scene is ready |
 | [`terrain-from-data`](plugins/unity/kits/terrain-from-data/KIT.md) | A Terrain built from a height function and paint layers defined as data |
 
 ## What was tested
 
 Each kit's `kit.json` has a `verified` entry saying which engine version and platform it was run on and what was
-run. Read it before relying on a kit elsewhere. Short version for 0.1.0: everything was run on macOS (Apple
-silicon) with UE 5.9 and Unity 6000.6. Windows and Linux code paths exist but were not run for this release.
+run. Read it before relying on a kit elsewhere. Short version for 0.2.0: everything was run on macOS (Apple
+silicon) with UE 5.9 and Unity 6000.6, in small test projects. Windows and Linux code paths exist but were not
+run. Packaged or built players were not run: the ready gates were tested in uncooked Unreal runs and Unity play
+mode only. The timings in the kit docs are from those small projects; measure your own.
 
 ## Scope
 

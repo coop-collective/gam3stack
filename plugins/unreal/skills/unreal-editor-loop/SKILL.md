@@ -5,7 +5,9 @@ description: The working loop for changing an Unreal Engine project as an agent 
 
 # The Unreal loop: change, build, look
 
-Needs the `ue-driver`, `editor-bridge` and `shot-director` kits in the project (see `gam3stack-unreal-kits`).
+Needs the `ue-driver`, `editor-bridge`, `ready-gate` and `shot-director` kits in the project (see
+`gam3stack-unreal-kits`). Two companion skills: `unreal-readiness` (when a capture means anything, and what the
+player must never see) and `unreal-parallel` (cheaper runs, subagents in their own environments).
 All commands run from the project directory.
 
 ## Two ways to run things, and when
@@ -14,7 +16,9 @@ All commands run from the project directory.
 | --- | --- | --- |
 | Levels, assets, materials, anything scripted in the editor | `ue_editor.mjs start` once, then `ue_mcp.mjs py @script.py` | The editor stays open: each step takes seconds, results come back as JSON |
 | C++ changes | `ue_editor.mjs stop`, then `ue_build.mjs` | The compile fails or loads stale code while an editor has the project open |
-| Seeing the result | `ue_game.mjs --map ... --shots 5,9 --quit 11` | Only the game shows the true lighting and broken materials |
+| Checking logic, loading, the log | `ue_game.mjs --profile blind --map ... --quit 5` | No renderer: seconds, and several can run at once |
+| Seeing the result | `ue_game.mjs --profile agent --map ... --shots 0,3 --quit 4` | A small picture from the real game, counted from the moment the level is ready |
+| Approving the look | the same at `--profile human` | Only full quality shows the true lighting |
 | A one-off scripted job with no editor open | `ue_python.mjs script.py --marker DONE` | Starts an editor, runs, quits |
 
 A normal cycle: edit by script in the open editor → save → run the game with shots → read the PNGs and the
@@ -35,11 +39,12 @@ A normal cycle: edit by script in the open editor → save → run the game with
 ## Checking the result
 
 - **Read the screenshots.** `ue_game.mjs` prints their paths. Look at them; do not report success from an exit code.
-- **Read the last line.** `GAM3GAME: ok shots=2/2 material_errors=0 fatal=0`. Any material error means something
-  on screen is flat grey even if the screenshot was not pointed at it.
+- **Read the last line.** `GAM3GAME: ok profile=agent ready=ok shots=2/2 bind_pose=0 ... material_errors=0 fatal=0`.
+  Any material error means something on screen is flat grey even if the screenshot was not pointed at it.
+  `ready` other than `ok` means the captures are pictures of a level that was still loading: see `unreal-readiness`.
 - **Editor captures are for layout only.** `ue_mcp.mjs shot` renders much darker than the game; do not tune
   lighting from it.
-- Give the first shot a few seconds so textures and lighting settle.
+- Never wait a fixed time for the level to settle. Shot times count from the ready gate; take one at 0.
 
 ## When it goes wrong
 
@@ -55,5 +60,6 @@ A normal cycle: edit by script in the open editor → save → run the game with
 ## Machine manners
 
 - Never kill Unreal by name. Stop only what you started, by PID; the scripts do this for you.
-- One editor per project. On a shared machine keep the number of running engine instances small: each one takes
-  several GB of memory and most of the GPU.
+- One editor per checkout. The tools cap the number of engine processes on the machine (`GAM3_MAX_ENGINES`,
+  default 3) and queue when it is reached; `node Tools/gam3/slots.mjs` shows who is running.
+- Stop an editor you no longer need: idle, it costs little processor time but keeps several GB of memory and a slot.

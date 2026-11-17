@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity: parallel work"
+  short_description: "Split Unity work across agents, each in its own environment"
+  default_prompt: "Use $unity-parallel to split this Unity work across subagents in separate environments and merge the results."

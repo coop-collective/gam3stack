@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity: readiness"
+  short_description: "No capture, loading screen or spawn shows a half-ready scene"
+  default_prompt: "Use $unity-readiness to make this Unity level load behind a cover until it is ready and check the first frames."

@@ -12,6 +12,11 @@ reviewed in a diff and is lost on the next rebuild.
 Kits: `unity-driver` (run the editor), `terrain-from-data` (the builder), `shot-capture` (the picture).
 Install the ones that are missing with the `gam3stack-unity-kits` skill.
 
+Profiles: the build needs no graphics, so run it with `--profile blind`. Capture with `--profile agent` while
+you are shaping the level (640x360, lowest quality: enough to see hills, the road and the markers) and with
+`--profile human` before you say how it looks. Every capture waits until the scene is ready and its result line
+must say `ready=ok`; see the `unity-readiness` skill.
+
 ## The round
 
 ```sh

@@ -1,7 +1,7 @@
 {
   "name": "editor-bridge",
   "engine": "unreal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "summary": "Keep one editor open and call it from the shell: run Python in it, call any editor tool, capture a viewport image.",
   "requires": [
     "ue-driver"
@@ -20,6 +20,6 @@
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "ue_editor.mjs start waited for the editor and reported ready; status showed the port holder; stop ended that editor and left the port free. ue_mcp.mjs toolsets, py (a value back, and a Python error back with exit 1) and shot (PNG saved) all ran. UE 5.8 and Windows were not run."
+    "how": "Installed into a fresh C++ project. ue_editor.mjs start, a Python call through ue_mcp.mjs, and stop; the editor held an engine slot while it ran and the slot was free after stop. Toolset listing, error paths and viewport capture were run for 0.1.0 and not again. Starting an editor inside a dedicated environment (the port from .gam3/env.json) was not run. Windows and Linux were not run."
   }
 }
