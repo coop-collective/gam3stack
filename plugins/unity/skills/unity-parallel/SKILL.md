@@ -1,6 +1,6 @@
 ---
 name: unity-parallel
-description: Split Unity work across several agents on one machine - choose how much each task needs to see (blind, agent or human profile), give each subagent its own environment with its own Library, cap the number of running editors, and merge the results back. Use when a Unity task is large enough to split, when running subagents or several Unity editors at once, when deciding whether a job needs graphics, or when merging Unity work from another branch or worktree.
+description: Split Unity work across several agents on one machine - choose how much each task needs to see (blind, agent or human profile), give each subagent its own workspace (from your platform, or a local copy-on-write clone), cap the number of running editors, and merge the results back. Use when a Unity task is large enough to split, when running subagents or several Unity editors at once, when deciding whether a job needs graphics, or when merging Unity work from another branch or worktree.
 ---
 
 # Parallel Unity work
@@ -8,7 +8,8 @@ description: Split Unity work across several agents on one machine - choose how 
 Most of what an agent does in Unity does not need a picture a person would enjoy, and a lot of it needs no
 picture at all. Run each job with the least it needs, in its own environment, and many jobs fit on one machine.
 
-Needs the `unity-driver` kit (`Tools/gam3/unity_run.mjs`, `slots.mjs`, `env.mjs`).
+Needs the `unity-driver` kit (`Tools/gam3/unity_run.mjs`, `slots.mjs`). `Tools/gam3/env.mjs` is the optional
+`local-envs` kit.
 
 ## 1. Pick the tier of eyes for each job
 
@@ -31,31 +32,34 @@ Rules that follow from the table:
   the real clock makes a fast run slow again.
 - Finish with one `human` pass in the main checkout before saying the work is done.
 
-## 2. One environment per subagent
+## 2. One workspace per subagent
 
-A Unity project directory can have exactly one editor. Two agents in one directory block each other, and two
-editors writing one `Library/` corrupt it. So each subagent that needs to run Unity gets its own checkout:
+Two agents in one checkout break each other: a Unity project directory can have exactly one editor, and two
+editors writing one `Library/` corrupt it. So each subagent that runs the
+engine needs a workspace of its own. Where that workspace comes from is not this plugin's business:
 
-```sh
-git add -A && git commit -m "..."         # uncommitted work does not travel to a new environment
-node Tools/gam3/env.mjs create terrain    # ../<repo>-env-terrain, branch gam3/terrain, Library/ cloned
-node Tools/gam3/env.mjs list
-```
+- **Your platform provides them** (separate machines, virtual machines, containers, an orchestrator that
+  distributes the project): use that. Nothing below about `env.mjs` applies; the profiles, the readiness rules
+  and the merge rules still do.
+- **One machine, nothing else available:** the optional `local-envs` kit.
 
-`create` makes a git worktree and clones `Library/` copy-on-write where the file system supports it (APFS,
-Btrfs, XFS), so the new environment opens without a re-import. Measured: 0.4 s to create with an 84 MB
-`Library/` on APFS, and the first run in it took the same 6 to 8 s as in the main checkout. On a file system
-without cloning the copy is a real copy: slower and as large as `Library/`.
+      node Tools/gam3/env.mjs create terrain     # -> GAM3ENV: ok created terrain path=... branch=gam3/terrain port=8124 copy=copy-on-write
+
+  It copies the whole checkout as it is now (untracked assets, engine caches and uncommitted work included) onto
+  a new branch. On a file system that clones (APFS; Btrfs or XFS with reflinks) nothing is duplicated until a
+  file changes: a small project with an 85 MB `Library/` cloned in 0.4 s, and the first compile in the
+  clone needed no re-import. On a file system that cannot clone, the project is really copied, which for a
+  large project is slow: there, get workspaces from elsewhere.
 
 Tell each subagent, in its brief:
 
-- its environment path, and that it works **only** there;
+- its workspace, and that it works **only** there;
 - which files and folders it owns (see section 4);
 - the profile to use for each kind of check;
 - that it commits its work on its branch and does not merge;
-- that it stops only Unity processes it started, and never copies or deletes another environment.
+- that it stops only Unity processes it started, and never touches another workspace.
 
-A subagent that only edits C# and never runs Unity does not need an environment. It needs a file list.
+A subagent that only edits C# and never runs Unity does not need a workspace of its own. It needs a file list.
 
 ## 3. The machine has a budget
 
@@ -95,7 +99,8 @@ Git merges text. Unity writes much of a project as files it cannot merge in prac
 
 ## 5. Merge, then verify in the main checkout
 
-From the main checkout, one environment at a time:
+From the main checkout, one branch at a time (the `env.mjs` lines apply only with the `local-envs` kit; with
+workspaces from elsewhere, find files changed on both sides with `git diff --name-only` and merge the same way):
 
 ```sh
 node Tools/gam3/env.mjs status terrain    # what it changed; binary files; CLASH = binary changed on both sides

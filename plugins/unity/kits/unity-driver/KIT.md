@@ -15,7 +15,6 @@ memory of the editor process.
 | --- | --- |
 | `Tools/gam3/unity_run.mjs`, `unity_env.mjs` | the driver |
 | `Tools/gam3/slots.mjs` | the machine-wide cap on engine processes (shared with other gam3stack drivers) |
-| `Tools/gam3/env.mjs` | dedicated environments: a git worktree per agent, with `Library/` cloned |
 | `Assets/Editor/Gam3/Gam3Profile.cs` | applies the profile inside the editor (quality level, fixed time step) |
 
 | Command | What it does | Fails when |
@@ -80,9 +79,8 @@ half-loaded scene. `ready=none` means nothing in the run waited; for a capture m
 
 - `slots.mjs`: every run takes a slot first and waits when `GAM3_MAX_ENGINES` (default 3) engine processes are
   already running on the machine, whoever started them. `node Tools/gam3/slots.mjs` shows who holds what.
-- `env.mjs create NAME`: a second checkout (git worktree, branch `gam3/NAME`) with `Library/` cloned
-  copy-on-write, so another agent can run its own editor at the same time. One project directory can only ever
-  have one editor. See the `unity-parallel` skill for how to split and merge work.
+- One project directory can only ever have one editor. To run several at once each needs its own workspace: see
+  the `unity-parallel` skill (and the optional `local-envs` kit when nothing else provides them).
 
 ## How `exec` methods should behave
 

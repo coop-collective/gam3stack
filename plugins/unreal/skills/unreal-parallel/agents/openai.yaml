@@ -1,4 +1,4 @@
 interface:
   display_name: "Unreal: parallel work"
-  short_description: "Cheaper runs, one environment per subagent, merges that keep binary assets"
-  default_prompt: "Use $unreal-parallel to split this work across subagents, each in its own environment, then merge and verify."
+  short_description: "Cheaper runs, one workspace per subagent, merges that keep binary assets"
+  default_prompt: "Use $unreal-parallel to split this work across subagents, each in its own workspace, then merge and verify."

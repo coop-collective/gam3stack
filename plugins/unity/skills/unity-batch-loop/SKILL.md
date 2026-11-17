@@ -46,9 +46,8 @@ skill has both sets of rules; follow it whenever you capture, or touch a load, a
 - **One editor per project.** If a person has the project open, the driver stops with `reason=project-open`.
   Do not close their editor and do not kill Unity processes you did not start. Ask them to close it, or have
   them run the menu item instead.
-- **Do not copy the project to get around the lock.** Two copies drift apart. When several agents need their
-  own editor, make environments with `node Tools/gam3/env.mjs create NAME` (a git worktree with `Library/`
-  cloned) and merge them back; see the `unity-parallel` skill.
+- **Do not hand-copy the project to get around the lock.** Untracked copies drift apart. When several agents need
+  their own editor, give each a workspace on its own branch and merge them back; see the `unity-parallel` skill.
 - **The machine has a cap.** Every run takes a slot and waits while `GAM3_MAX_ENGINES` (default 3) engines are
   running. A run that prints `slots: waiting ...` is queued, not stuck. Do not raise the cap yourself.
 - **Never pick a different editor version on your own.** Opening a project with a newer editor upgrades it,

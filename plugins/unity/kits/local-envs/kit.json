@@ -1,0 +1,25 @@
+{
+  "name": "local-envs",
+  "engine": "unity",
+  "version": "0.1.0",
+  "summary": "Optional. Copy-on-write copies of the project on one machine, each on its own branch with its own caches and editor port, so several agents can run the engine at once. Skip it when something else gives each agent a workspace.",
+  "requires": [
+    "unity-driver"
+  ],
+  "params": {},
+  "adapt": [
+    "Commit Tools/gam3/env.mjs so it exists in every copy.",
+    "Nothing else: an environment ignores its own .gam3/env.json."
+  ],
+  "verify": [
+    "node Tools/gam3/env.mjs create check",
+    "node Tools/gam3/env.mjs status check",
+    "node Tools/gam3/env.mjs remove check"
+  ],
+  "verified": {
+    "engine": "Unity 6000.6.5f1",
+    "os": "macOS 26 (Apple silicon, APFS)",
+    "date": "2026-11-17",
+    "how": "In a small built-in-pipeline project on APFS: create (0.4 s, copy-on-write, 85 MB Library, uncommitted work carried over), a blind compile inside the copy with no re-import, remove. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Two editors side by side were run on the earlier worktree-based version of this tool, not this one. Linux, Windows and file systems without cloning were not run."
+  }
+}

@@ -29,19 +29,22 @@ for (const plugin of plugins) {
     else fs.rmSync(path.join(lib, f));
   }
 }
-// Tools every engine's driver kit ships unchanged: the engine-slot cap and dedicated environments.
+// Tools shipped unchanged for every engine: the engine-slot cap and local environments.
+const HOME = { 'env.mjs': 'local-envs' };
 const shared = fs.readdirSync(path.join(root, 'core', 'kit-shared')).filter((f) => f.endsWith('.mjs')).sort();
 for (const plugin of plugins) {
   const kits = path.join(root, 'plugins', plugin, 'kits');
   const driver = fs.readdirSync(kits).find((k) => k.endsWith('-driver'));
   if (!driver) continue;
   for (const f of shared) {
+    // The engine cap ships with the driver, which needs it. Local environments are a kit of their own: optional.
+    const kit = HOME[f] || driver;
     const want = fs.readFileSync(path.join(root, 'core', 'kit-shared', f), 'utf8');
-    const dest = path.join(kits, driver, 'files', 'Tools', 'gam3', f);
+    const dest = path.join(kits, kit, 'files', 'Tools', 'gam3', f);
     if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') === want) continue;
     stale++;
-    if (check) console.error(`stale: plugins/${plugin}/kits/${driver}/files/Tools/gam3/${f} (run: npm run sync)`);
-    else fs.writeFileSync(dest, want);
+    if (check) console.error(`stale: plugins/${plugin}/kits/${kit}/files/Tools/gam3/${f} (run: npm run sync)`);
+    else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, want); }
   }
 }
 if (check && stale) process.exit(1);

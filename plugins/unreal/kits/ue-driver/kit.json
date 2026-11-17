@@ -16,6 +16,6 @@
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon)",
     "date": "2026-11-17",
-    "how": "Installed into a fresh C++ project. ue_build.mjs compiled it and refused while an editor had the project open. ue_game.mjs ran a built level under the blind, agent and human profiles and reported readiness, shots and log problems; --shots under blind was refused. slots.mjs: three runs started together with GAM3_MAX_ENGINES=2 queued and all finished. env.mjs: two environments created (0.1 s each, caches cloned on APFS), a game run and a C++ build inside one, status reported a binary file changed on both sides as CLASH, remove refused unmerged work, then removed after a merge. ue_python.mjs was run for 0.1.0 and not again. Windows and Linux were not run."
+    "how": "Installed into a fresh C++ project. ue_build.mjs compiled it and refused while an editor had the project open. ue_game.mjs ran a built level under the blind, agent and human profiles and reported readiness, shots and log problems; --shots under blind was refused. slots.mjs: three runs started together with GAM3_MAX_ENGINES=2 queued and all finished. ue_python.mjs was run for 0.1.0 and not again. Windows and Linux were not run."
   }
 }

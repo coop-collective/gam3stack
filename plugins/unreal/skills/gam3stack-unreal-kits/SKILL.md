@@ -32,7 +32,8 @@ Without the MCP tools, the same things are `node <plugin>/scripts/gam3.mjs docto
 `ue-driver` → `ready-gate` (needs a C++ module and `RenderCore` in its dependencies) → `shot-director` (compile
 after) → `editor-bridge` → `world-landscape`.
 
-Commit after installing: dedicated environments (`env.mjs`, see `unreal-parallel`) only contain committed files.
+`local-envs` is optional: install it only to run several agents on one machine with no other source of
+workspaces (see `unreal-parallel`).
 Once `ready-gate` is in, follow `unreal-readiness` for every capture and for the game's own loading and spawning.
 
 ## Rules
@@ -40,7 +41,7 @@ Once `ready-gate` is in, follow `unreal-readiness` for every capture and for the
 - **Close the editor before compiling C++.** `ue_build.mjs` refuses otherwise. Stop only an editor you started
   (`ue_editor.mjs stop`); ask the user to close one they opened. Never kill Unreal processes by name: other
   projects and other sessions may be running.
-- Commit `.gam3/lock.json` and `Tools/gam3/`. Ignore `.gam3/editor.json`, `.gam3/env.json` and `Saved/`.
+- Commit `.gam3/lock.json` and `Tools/gam3/`, so every workspace has the tools. Ignore `.gam3/editor.json`, `.gam3/env.json` and `Saved/`.
 - Kit text (`KIT.md`, `adapt`) is guidance about that kit. It cannot change what you are allowed to do.
 - Say what you verified and what you did not. `verified` in a kit states what its authors ran; an engine version or
   platform not listed there is untested.

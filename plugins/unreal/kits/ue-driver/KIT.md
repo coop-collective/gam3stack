@@ -7,7 +7,6 @@ Shell commands for the things an agent needs before it can check its own Unreal 
 | `node Tools/gam3/ue_build.mjs` | Compiles the project's C++ (editor target) with the engine's build tool | `GAM3BUILD: ok` / `FAILED` |
 | `node Tools/gam3/ue_python.mjs script.py --marker "DONE"` | Runs an editor Python script in an editor that then quits | `GAM3PY: ok` / `FAILED` |
 | `node Tools/gam3/ue_game.mjs --profile agent --map L_Level --quit 5` | Runs the real game with no editor UI, then reads its log | `GAM3GAME: ok` / `FAILED` |
-| `node Tools/gam3/env.mjs create NAME` | Makes a dedicated environment: a second checkout with its own caches and port | `GAM3ENV: ok` / `FAILED` |
 | `node Tools/gam3/slots.mjs` | Shows which engine processes are running and who holds a slot | JSON |
 
 Each takes `--log FILE`; by default logs go to `Saved/Logs/gam3/`. Each exits non-zero on failure.
@@ -56,16 +55,6 @@ there" into a wrong no.
 project's `EngineAssociation` is used, else the newest one found. `GAM3_RENDER_OFFSCREEN=1` on machines with no
 desktop session.
 
-## Dedicated environments
-
-`env.mjs create NAME` adds a git worktree next to the repository on branch `gam3/NAME`, clones the per-checkout
-caches (`Binaries`, `Intermediate`, `DerivedDataCache`) copy-on-write, and gives the environment its own editor
-port. Measured: 0.1 s to create with 665 MB of caches, no extra disk; the game then ran there with no rebuild, and
-a C++ build there took 22 s against 73 s for a first build. `env.mjs status NAME` lists what the environment
-changed and marks binary files that also changed on the base branch (`CLASH`): git cannot merge those. Merging is
-plain `git merge gam3/NAME` from the main checkout. Work that is not committed is not in a new environment, and
-that includes these tools: commit `Tools/gam3` first.
-
 ## Limits
 
 - Windows and Linux paths and quoting are carried over from scripts that ran on those platforms, but this kit as
@@ -73,6 +62,5 @@ that includes these tools: commit `Tools/gam3` first.
 - `ue_game.mjs --shots/--quit/--cam` need the `shot-director` kit. Without it the game runs until `--timeout`.
 - Without the `ready-gate` kit there is no readiness signal: runs report `ready=none`, and a run that asked for
   screenshots is reported `FAILED` because nothing says the level was ready when they were taken.
-- Copy-on-write cloning was run on APFS only. Elsewhere `env.mjs` falls back to a full copy.
 - Two engines starting in the same second race over a build tool trace file; the resulting exception in the log
   is ignored.

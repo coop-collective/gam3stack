@@ -28,7 +28,7 @@
   "interface": {
     "displayName": "gam3stack Unreal",
     "shortDescription": "Script the editor, build worlds from data, capture the real game",
-    "longDescription": "Kits are source copied into your Unreal project: shell drivers to compile C++ and run the game unattended at three levels of cost, a ready gate so neither a capture nor a player sees a level that is still loading or a character in its bind pose, a bridge to an open editor, scripted screenshots, dedicated environments for subagents, and a level builder that makes terrain, paint layers and scatter from one data file. Skills teach the working loop and its pitfalls.",
+    "longDescription": "Kits are source copied into your Unreal project: shell drivers to compile C++ and run the game unattended at three levels of cost, a ready gate so neither a capture nor a player sees a level that is still loading or a character in its bind pose, a bridge to an open editor, scripted screenshots, optional local environments for subagents, and a level builder that makes terrain, paint layers and scatter from one data file. Skills teach the working loop and its pitfalls.",
     "developerName": "Xava Labs",
     "category": "Developer Tools",
     "capabilities": [

@@ -1,4 +1,4 @@
-// The tools every driver kit ships: the engine-slot cap and dedicated environments.
+// Tools shipped unchanged for every engine: the engine-slot cap (driver kits) and local environments (local-envs).
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -51,13 +51,15 @@ test('env: create, status with a binary clash, guarded remove', (t) => {
   git(proj, 'init', '-q', '-b', 'main');
   git(proj, 'add', '-A');
   git(proj, 'commit', '-qm', 'base');
+  fs.writeFileSync(path.join(proj, 'untracked.bin'), 'not in git');
   const env = (...args) => spawnSync(process.execPath, [path.join(proj, 'Tools', 'gam3', 'env.mjs'), ...args], { encoding: 'utf8' });
 
   const made = env('create', 'one');
-  assert.match(made.stdout, /GAM3ENV: ok created one .*port=8124 caches=Intermediate/);
+  assert.match(made.stdout, /GAM3ENV: ok created one .*port=8124 copy=/);
   const there = path.join(base, 'game-env-one');
   assert.equal(fs.readFileSync(path.join(there, 'Intermediate', 'cache.bin'), 'utf8'), 'cached');   // the cache travelled
-  assert.equal(git(there, 'status', '--porcelain'), '');                                              // and left the checkout clean
+  assert.equal(git(there, 'status', '--porcelain'), '?? untracked.bin');                              // untracked work travels too
+  assert.equal(git(there, 'rev-parse', '--abbrev-ref', 'HEAD'), 'gam3/one');
   assert.match(env('create', 'two').stdout, /port=8125/);
 
   fs.writeFileSync(path.join(there, 'Content', 'Level.umap'), 'theirs');

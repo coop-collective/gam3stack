@@ -35,7 +35,7 @@ editor that stays open: no start-up cost per step, and results come back as JSON
   also ships with 5.8 but was not run there.
 - One editor per project. `start` does nothing if the one it started is still alive.
 - The port check and the crash-reporter cleanup use `lsof` and `ps`: Mac and Linux. On Windows they are skipped.
-- The port defaults to the one in `.gam3/env.json` when the project is a dedicated environment (`env.mjs`), so
+- The port defaults to the one in `.gam3/env.json` when the project is a local environment (the optional `local-envs` kit), so
   two environments never share one. The editor holds an engine slot (`slots.mjs`) while it runs.
 - An idle editor in the background measured about 6% of one processor core and 3.5 GB of memory; turning realtime
   viewports off did not change that. Its cost is memory: stop it when the work is done.

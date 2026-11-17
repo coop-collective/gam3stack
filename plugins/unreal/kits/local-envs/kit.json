@@ -1,0 +1,25 @@
+{
+  "name": "local-envs",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Optional. Copy-on-write copies of the project on one machine, each on its own branch with its own caches and editor port, so several agents can run the engine at once. Skip it when something else gives each agent a workspace.",
+  "requires": [
+    "ue-driver"
+  ],
+  "params": {},
+  "adapt": [
+    "Commit Tools/gam3/env.mjs so it exists in every copy.",
+    "Nothing else: an environment ignores its own .gam3/env.json."
+  ],
+  "verify": [
+    "node Tools/gam3/env.mjs create check",
+    "node Tools/gam3/env.mjs status check",
+    "node Tools/gam3/env.mjs remove check"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon, APFS)",
+    "date": "2026-11-17",
+    "how": "In a fresh C++ project on APFS: create (0.1 s, copy-on-write, uncommitted work carried over), a blind game run inside the copy with no rebuild, create from inside another environment, list, status, remove, and remove after the parent environment was gone. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Separately, cloning the content and caches of a 7.7 GB project took 0.3 s. Starting an editor inside an environment was not run. Linux, Windows and file systems without cloning were not run."
+  }
+}

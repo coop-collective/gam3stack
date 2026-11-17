@@ -97,17 +97,19 @@ On a fixed time step the game advances the same amount every frame however long 
 changes how long a run takes and never what happens in it. With no renderer, 10 seconds of game time took 0.03 s
 in Unreal and 0.006 s in Unity on the test machine; what is left is engine start-up.
 
-**One subagent, one environment.** `Tools/gam3/env.mjs create NAME` makes a second checkout on its own branch with
-the engine's caches cloned copy-on-write and its own editor port, so agents do not compile under each other's
-editors. A machine-wide cap (`GAM3_MAX_ENGINES`, default 3) queues engine starts. `env.mjs status` marks binary
-assets changed on both sides before a merge, because git cannot merge those.
+**One subagent, one workspace.** Agents that run the engine must not share a checkout. Where the workspaces come
+from is up to you: a platform that distributes the project to machines or virtual machines, or, on a single
+machine, the optional `local-envs` kit, which makes copy-on-write copies of the whole project on their own
+branches (a 7.7 GB project cloned in 0.3 s on APFS, using no disk). Either way a machine-wide cap
+(`GAM3_MAX_ENGINES`, default 3) queues engine starts, and the skills carry the merge rules: engine assets are
+binary, so each agent owns its files and generated levels are rebuilt after merging.
 
 ## What is in a plugin
 
 | Part | What it is |
 | --- | --- |
 | Kits | Scripts and engine source copied into the project: [kit format](docs/KIT-SPEC.md) |
-| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, parallel work in dedicated environments, building worlds from data |
+| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, splitting work across subagents, building worlds from data |
 | MCP tools | `<engine>_doctor`, `<engine>_kits`, `<engine>_kit`, `<engine>_install` |
 | Commands | Short entry points for the above |
 
@@ -115,19 +117,21 @@ assets changed on both sides before a merge, because git cannot merge those.
 
 | Kit | Gives the project |
 | --- | --- |
-| [`ue-driver`](plugins/unreal/kits/ue-driver/KIT.md) | Compile C++, run editor Python, run the game unattended at three profiles with its log checked; dedicated environments and the engine cap |
+| [`ue-driver`](plugins/unreal/kits/ue-driver/KIT.md) | Compile C++, run editor Python, run the game unattended at three profiles with its log checked; the engine cap |
 | [`editor-bridge`](plugins/unreal/kits/editor-bridge/KIT.md) | One editor kept open and called from the shell through the engine's own MCP plugin: Python, any editor tool, viewport captures |
 | [`ready-gate`](plugins/unreal/kits/ready-gate/KIT.md) | Game code: a cover until the level is ready, characters never shown in their bind pose, and the readiness signal unattended runs wait on |
 | [`shot-director`](plugins/unreal/kits/shot-director/KIT.md) | Screenshots from the real game at set times after it is ready, optionally through a fixed camera, then quit |
+| [`local-envs`](plugins/unreal/kits/local-envs/KIT.md) | Optional: copy-on-write copies of the project for several agents on one machine |
 | [`world-landscape`](plugins/unreal/kits/world-landscape/KIT.md) | A level from one data file: Landscape terrain, paint layers, PCG scatter, lighting; one command rebuilds it |
 
 ### Unity kits
 
 | Kit | Gives the project |
 | --- | --- |
-| [`unity-driver`](plugins/unity/kits/unity-driver/KIT.md) | Batch-mode compile check with the compiler errors, run a static method, run EditMode and PlayMode tests, at three profiles; dedicated environments and the engine cap |
+| [`unity-driver`](plugins/unity/kits/unity-driver/KIT.md) | Batch-mode compile check with the compiler errors, run a static method, run EditMode and PlayMode tests, at three profiles; the engine cap |
 | [`ready-gate`](plugins/unity/kits/ready-gate/KIT.md) | Game code: a loading cover until the scene is ready, and spawned characters never shown in their bind pose |
 | [`shot-capture`](plugins/unity/kits/shot-capture/KIT.md) | Render a scene's camera to a PNG in batch mode, once the scene is ready |
+| [`local-envs`](plugins/unity/kits/local-envs/KIT.md) | Optional: copy-on-write copies of the project for several agents on one machine |
 | [`terrain-from-data`](plugins/unity/kits/terrain-from-data/KIT.md) | A Terrain built from a height function and paint layers defined as data |
 
 ## What was tested

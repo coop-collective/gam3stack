@@ -1,23 +1,26 @@
 #!/usr/bin/env node
-// Dedicated environments: a second checkout of the project where one agent can run its own editor and game without
-// touching anyone else's. No dependencies beyond git.
-//   node Tools/gam3/env.mjs create NAME [--base REF]   new branch gam3/NAME in a git worktree next to the repository
+// Local environments: a second copy of the project on this machine where one agent can run its own editor and game
+// without touching anyone else's. OPTIONAL. If something else already hands each agent its own workspace (separate
+// machines, virtual machines, containers), use that and skip this tool.
+//   node Tools/gam3/env.mjs create NAME      a copy of this checkout, as it is now, on new branch gam3/NAME
 //   node Tools/gam3/env.mjs list
-//   node Tools/gam3/env.mjs status NAME                what it changed, and which of those files will not merge
+//   node Tools/gam3/env.mjs status NAME      what it changed, and which of those files will not merge
 //   node Tools/gam3/env.mjs remove NAME [--force]
-// An engine keeps per-checkout caches (compiled binaries, imported assets) that git does not carry. create clones
-// them copy-on-write where the file system can (APFS, Btrfs, XFS), so a new environment costs seconds and almost no
-// disk instead of a full rebuild or re-import. Each environment gets its own port for an editor's MCP server.
-// Merging is plain git, run from the main checkout: `git merge gam3/NAME`. Read `status` first: engine assets are
-// binary, and a file changed on both sides cannot be merged, only chosen.
+// The copy is copy-on-write where the file system can do it (APFS; Btrfs and XFS with reflinks): nothing is
+// duplicated until a file changes, so the cost follows the number of files, not their size, and no disk is used.
+// Everything comes along: assets git does not track, the engine's caches, uncommitted work. On a file system that
+// cannot clone, the whole project is really copied; for a large project that is slow, and a reason to use
+// workspaces from elsewhere instead. Each environment is a git worktree, so merging is plain git from the main
+// checkout: `git merge gam3/NAME`. Read `status` first: engine assets are binary, and a file changed on both sides
+// cannot be merged, only chosen.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PROJ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-// Per-checkout engine caches, relative to the project directory. Only those that exist and are not tracked are cloned.
-const CACHES = ['Binaries', 'Intermediate', 'DerivedDataCache', 'Library'];
+// State that belongs to one running checkout and must not follow the copy.
+const STALE = [path.join('.gam3', 'editor.json'), path.join('.gam3', 'env.json'), path.join('Temp', 'UnityLockfile')];
 // Files git cannot merge: one side has to win.
 const UNMERGEABLE = /\.(uasset|umap|ubulk|uexp|unity|prefab|asset|mat|anim|controller|fbx|glb|gltf|obj|png|jpg|jpeg|tga|exr|hdr|psd|wav|ogg|mp3|mp4|ttf|otf|bank)$/i;
 const BASE_PORT = 8123;
@@ -61,13 +64,12 @@ function environments(r) {
   return out;
 }
 
-/** Copy a directory without copying its bytes where the file system allows it. Returns 'clone' or 'copy'. */
-function cloneDir(from, to) {
-  fs.mkdirSync(path.dirname(to), { recursive: true });
+/** Copy one file or directory without copying its bytes where the file system allows it. Returns 'clone' or 'copy'. */
+function cloneInto(from, to) {
   if (process.platform === 'darwin' && spawnSync('cp', ['-cR', from, to], { stdio: 'ignore' }).status === 0) return 'clone';
-  if (process.platform === 'linux' && spawnSync('cp', ['-R', '--reflink=auto', from, to], { stdio: 'ignore' }).status === 0) return 'clone';
+  if (process.platform === 'linux' && spawnSync('cp', ['-R', '--reflink=always', from, to], { stdio: 'ignore' }).status === 0) return 'clone';
   fs.rmSync(to, { recursive: true, force: true });
-  fs.cpSync(from, to, { recursive: true });
+  fs.cpSync(from, to, { recursive: true, verbatimSymlinks: true });
   return 'copy';
 }
 
@@ -77,22 +79,25 @@ function enginesOn(dir) {
   return lines(r.stdout || '').filter((l) => /UnrealEditor|Unity/.test(l) && l.includes(dir) && !/CrashReportClient/.test(l)).map((l) => Number(l.split(/\s+/)[0]));
 }
 
-function create(r, name, base) {
+function create(r, name) {
   const dest = envPath(r, name);
-  if (fs.existsSync(dest)) throw new Error(`already exists: ${dest}`);
-  const baseRef = base || 'HEAD';
-  const baseSha = git(r.top, ['rev-parse', baseRef]).out;
-  const baseBranch = base || git(r.top, ['rev-parse', '--abbrev-ref', 'HEAD']).out;
+  if (fs.existsSync(dest) || fs.existsSync(`${dest}.wt`)) throw new Error(`already exists: ${dest}`);
+  const baseSha = git(r.top, ['rev-parse', 'HEAD']).out;
+  const baseBranch = git(r.top, ['rev-parse', '--abbrev-ref', 'HEAD']).out;
   const t0 = Date.now();
-  git(r.main, ['worktree', 'add', '-b', `gam3/${name}`, dest, baseSha]);
-  const proj = path.join(dest, r.rel);
-  const cloned = [];
-  for (const c of CACHES) {
-    const from = path.join(PROJ, c);
-    if (!fs.existsSync(from) || fs.existsSync(path.join(proj, c))) continue;
-    if (lines(git(PROJ, ['ls-files', '--', c]).out).length) continue;   // tracked: the worktree already has it
-    cloned.push(`${c} (${cloneDir(from, path.join(proj, c))})`);
+  // The branch and git's record of the checkout, with no files written; the files come from the copy below.
+  git(r.main, ['worktree', 'add', '--no-checkout', '-b', `gam3/${name}`, `${dest}.wt`, baseSha]);
+  fs.mkdirSync(dest);
+  const how = new Set();
+  for (const entry of fs.readdirSync(r.top)) {
+    if (entry !== '.git') how.add(cloneInto(path.join(r.top, entry), path.join(dest, entry)));
   }
+  fs.renameSync(path.join(`${dest}.wt`, '.git'), path.join(dest, '.git'));
+  fs.rmSync(`${dest}.wt`, { recursive: true, force: true });
+  git(r.main, ['worktree', 'repair', dest]);
+  git(dest, ['reset', '-q']);   // index from the commit; files that differ show as the uncommitted work they are
+  const proj = path.join(dest, r.rel);
+  for (const f of STALE) fs.rmSync(path.join(proj, f), { force: true });
   const used = new Set(environments(r).map((e) => e.port).filter(Boolean));
   let port = BASE_PORT + 1;
   while (used.has(port)) port++;
@@ -100,16 +105,18 @@ function create(r, name, base) {
   const ignore = path.join(proj, '.gam3', '.gitignore');
   if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, 'env.json\neditor.json\n.gitignore\n');
   fs.writeFileSync(envFile(proj), JSON.stringify({ name, port, base: baseBranch, base_sha: baseSha, created: new Date().toISOString() }, null, 2) + '\n');
-  // Work that is not committed does not travel: say so, because a missing tool or asset there is a confusing failure.
-  const dirty = lines(git(r.top, ['status', '--porcelain']).out);
-  console.log(`GAM3ENV: ok created ${name} path=${proj} branch=gam3/${name} port=${port} caches=${cloned.join(', ') || 'none'} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  if (dirty.length) console.log(`note: ${dirty.length} uncommitted change(s) in the checkout you ran this from are NOT in the environment (first: ${dirty[0]}). Commit what the environment needs, then create it.`);
+  const copied = how.has('copy');
+  console.log(`GAM3ENV: ok created ${name} path=${proj} branch=gam3/${name} port=${port} copy=${copied ? 'full' : 'copy-on-write'} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  if (copied) console.log('note: this file system cannot clone files, so the project was copied in full. For a large project, workspaces provided from elsewhere will be faster than this tool.');
   return 0;
 }
 
 function describe(r, e) {
-  const baseNow = git(r.main, ['rev-parse', e.base || 'HEAD'], { allowFail: true }).out || e.base_sha;
-  const fork = git(r.main, ['merge-base', baseNow, e.branch], { allowFail: true }).out || e.base_sha;
+  // The base branch may be gone (an environment made from another environment that was since removed).
+  const base = git(r.main, ['rev-parse', '--verify', '--quiet', `${e.base || 'HEAD'}^{commit}`], { allowFail: true });
+  const baseNow = base.ok ? base.out : e.base_sha;
+  const mb = git(r.main, ['merge-base', baseNow, e.branch], { allowFail: true });
+  const fork = mb.ok ? mb.out : e.base_sha;
   const committed = lines(git(r.main, ['diff', '--name-only', `${fork}..${e.branch}`]).out);
   const uncommitted = fs.existsSync(e.path) ? git(e.path, ['status', '--porcelain']).out.split('\n').filter(Boolean).map((l) => l.slice(3)) : [];
   const theirs = new Set(lines(git(r.main, ['diff', '--name-only', `${fork}..${baseNow}`]).out));
@@ -141,7 +148,7 @@ function remove(r, name, force) {
   const running = enginesOn(e.path);
   if (running.length) throw new Error(`an engine (pid ${running.join(', ')}) is running in ${e.path}: stop it first`);
   const d = describe(r, e);
-  const merged = git(r.main, ['merge-base', '--is-ancestor', e.branch, e.base || 'HEAD'], { allowFail: true }).ok;
+  const merged = git(r.main, ['merge-base', '--is-ancestor', e.branch, 'HEAD'], { allowFail: true }).ok;
   if (!force && (d.uncommitted.length || (!merged && d.ahead))) {
     throw new Error(`${name} has ${d.uncommitted.length} uncommitted change(s) and ${merged ? 0 : d.ahead} unmerged commit(s). Merge or commit them, or pass --force to discard.`);
   }
@@ -154,10 +161,9 @@ function remove(r, name, force) {
 function main(argv) {
   const [cmd, ...rest] = argv;
   const flag = (n) => rest.includes(`--${n}`);
-  const opt = (n) => { const i = rest.indexOf(`--${n}`); return i >= 0 ? rest[i + 1] : undefined; };
-  const name = rest.find((a, i) => !a.startsWith('--') && rest[i - 1] !== '--base');
+  const name = rest.find((a) => !a.startsWith('--'));
   const r = repo();
-  if (cmd === 'create') return create(r, checkName(name), opt('base'));
+  if (cmd === 'create') return create(r, checkName(name));
   if (cmd === 'status') return status(r, checkName(name));
   if (cmd === 'remove') return remove(r, checkName(name), flag('force'));
   if (cmd === 'list') {
@@ -169,7 +175,7 @@ function main(argv) {
     console.log(`GAM3ENV: ok ${envs.length} environment(s)`);
     return 0;
   }
-  console.error('usage: env.mjs create NAME [--base REF] | list | status NAME | remove NAME [--force]');
+  console.error('usage: env.mjs create NAME | list | status NAME | remove NAME [--force]');
   return 2;
 }
 

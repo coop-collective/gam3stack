@@ -1,6 +1,6 @@
 ---
 name: unreal-parallel
-description: Split Unreal Engine work across subagents safely - choose how much engine each task needs (blind, agent or human profile), give each subagent a dedicated environment with its own checkout, caches and editor port, keep the machine within its engine limit, and merge the results back without losing binary assets. Use when a task can be split into independent parts, when planning or briefing subagents for Unreal work, when several engines or editors would run at once, when runs are slow and you want cheaper ones, or when merging branches that changed .uasset or .umap files.
+description: Split Unreal Engine work across subagents safely - choose how much engine each task needs (blind, agent or human profile), give each subagent its own workspace (from your platform, or a local copy-on-write clone), keep the machine within its engine limit, and merge the results back without losing binary assets. Use when a task can be split into independent parts, when planning or briefing subagents for Unreal work, when several engines or editors would run at once, when runs are slow and you want cheaper ones, or when merging branches that changed .uasset or .umap files.
 ---
 
 # Parallel Unreal work: cheap eyes, separate rooms, one merge
@@ -27,23 +27,28 @@ Three ideas, in the order they pay off.
 Under `blind` and `agent` the game runs on a fixed time step: results do not depend on how busy the machine is,
 which is what makes running several at once safe.
 
-## 2. One subagent, one environment
+## 2. One subagent, one workspace
 
 Two agents in one checkout break each other: one compiles while the other's editor has the project open, both
-write `Saved/`, both want the same editor port. Give each its own:
+write `Saved/`, both want the same editor port. So each subagent that runs the
+engine needs a workspace of its own. Where that workspace comes from is not this plugin's business:
 
-    node Tools/gam3/env.mjs create terrain      # -> GAM3ENV: ok created terrain path=... branch=gam3/terrain port=8124
+- **Your platform provides them** (separate machines, virtual machines, containers, an orchestrator that
+  distributes the project): use that. Nothing below about `env.mjs` applies; the profiles, the readiness rules
+  and the merge rules still do.
+- **One machine, nothing else available:** the optional `local-envs` kit.
 
-An environment is a git worktree on its own branch with the engine's caches cloned (copy-on-write where the file
-system allows, so it is quick and takes almost no disk) and its own editor port. The tools inside it find that
-port by themselves.
+      node Tools/gam3/env.mjs create terrain     # -> GAM3ENV: ok created terrain path=... branch=gam3/terrain port=8124 copy=copy-on-write
 
-Before creating environments: **commit**. Uncommitted work, including a freshly installed `Tools/gam3`, is not in
-a new environment.
+  It copies the whole checkout as it is now (untracked assets, engine caches and uncommitted work included) onto
+  a new branch. On a file system that clones (APFS; Btrfs or XFS with reflinks) nothing is duplicated until a
+  file changes: a 7.7 GB project (content and caches) cloned in 0.3 s and used no disk, and the game ran in
+  the clone with no rebuild. On a file system that cannot clone, the project is really copied, which for a
+  large project is slow: there, get workspaces from elsewhere.
 
 Brief each subagent with all of this, because it knows nothing else:
 
-- the environment's path (it must `cd` there and stay there) and its branch;
+- its workspace (it must work there and nowhere else) and the branch it commits to;
 - the task and what "done" means, including the exact check to run and the profile to run it at;
 - **which files it owns** (see merging, below) and that it must not touch others;
 - to commit its work on its branch and report the last lines of its checks (`GAM3BUILD:`, `GAM3GAME:`);
@@ -70,22 +75,22 @@ only keep one side.
 Split work so the binary files do not overlap: one subagent per level, per character, per system. If two tasks
 must touch one level, they are one task, or the level should be built from data.
 
-Before merging each environment:
+Before merging each branch, find the binary files changed on both sides. With `local-envs`:
 
     node Tools/gam3/env.mjs status terrain      # CLASH lines are binary files changed on both sides
 
+With workspaces from elsewhere, compare `git diff --name-only <fork>..<branch>` for each side yourself.
+
 Then, from the main checkout, with no editor open on it:
 
-1. `git merge gam3/<name>` for each environment, code-only branches first.
+1. Merge each branch, code-only branches first.
 2. `ue_build.mjs` once, after the code is in.
 3. Rebuild anything generated from data.
 4. Verify at `--profile human`: the parts were only ever checked alone and at lower quality.
-5. `env.mjs remove <name>` (it refuses while there is unmerged or uncommitted work).
+5. Release the workspaces (`env.mjs remove <name>` refuses while there is unmerged or uncommitted work).
 
 ## Limits to plan around
 
-- A worktree checks out the whole project. A very large `Content/` is duplicated on disk (the caches are cloned
-  cheaply; tracked files are not).
-- Copy-on-write cloning was run on APFS. On other file systems it may be a full copy, and on Windows it is.
+- `local-envs` was run on APFS only. Reflink cloning on Linux and the full-copy fallback were not run.
 - Start-up is the fixed cost of every run, whatever the profile. For many small editor steps keep one editor open
-  in the environment (`ue_editor.mjs start`) instead of starting one per step.
+  in the workspace (`ue_editor.mjs start`) instead of starting one per step.
