@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity: performance pass"
+  short_description: "Measure the game in parts: test rooms, fly-bys, self-play; no first-use hitches"
+  default_prompt: "Use $unity-performance to measure this Unity game in test rooms, fly-bys and a self-playing run, and fix what hitches on first use."

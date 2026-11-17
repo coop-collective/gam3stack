@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: movement QA"
+  short_description: "A bot walks the level unattended and reports stuck spots, falls, sliding and camera clipping"
+  default_prompt: "Use $unreal-movement-qa to walk this level with the bot at several seeds and fix what it finds."

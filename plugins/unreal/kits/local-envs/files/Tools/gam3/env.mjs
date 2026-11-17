@@ -81,12 +81,24 @@ function cloneSupport(from, destParent) {
     const a = q(from);
     return a === 'ReFS' && q(destParent) === 'ReFS' && path.parse(from).root === path.parse(destParent).root ? 'expected' : 'no';
   }
+  if (process.platform === 'darwin') {
+    // Node's "clone or fail" copy is not implemented on every macOS build of Node (it answers ENOSYS on a volume
+    // that clones), and `cp -c` copies silently when it cannot clone. So ask what the volume is: APFS clones
+    // within one volume.
+    const APFS = 26;   // statfs f_type on macOS
+    try {
+      return fs.statfsSync(from).type === APFS && fs.statSync(from).dev === fs.statSync(destParent).dev ? 'yes' : 'no';
+    } catch { return 'no'; }
+  }
   const probe = path.join(from, `.gam3-probe-${process.pid}`);
   const copy = path.join(destParent, `.gam3-probe-${process.pid}`);
   try {
     fs.writeFileSync(probe, 'probe');
-    fs.copyFileSync(probe, copy, fs.constants.COPYFILE_FICLONE_FORCE);
-    return 'yes';
+    try {
+      fs.copyFileSync(probe, copy, fs.constants.COPYFILE_FICLONE_FORCE);
+      return 'yes';
+    } catch { /* not implemented in this Node, or the volume cannot clone: let cp say which */ }
+    return spawnSync('cp', ['--reflink=always', probe, copy], { stdio: 'ignore' }).status === 0 ? 'yes' : 'no';
   } catch {
     return 'no';
   } finally {

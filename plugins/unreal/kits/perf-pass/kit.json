@@ -1,0 +1,35 @@
+{
+  "name": "perf-pass",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Performance measured in parts: test rooms that find first-use hitches per effect or actor by name, fly-bys for what the level costs, and labelled play runs; plus the prewarm that ships in the game so anything spawned during play appears instantly.",
+  "requires": [
+    "ue-driver",
+    "ready-gate"
+  ],
+  "params": {
+    "MODULE": {
+      "description": "The C++ game module the two source files join (the directory under Source/)."
+    },
+    "MODULE_API": {
+      "description": "That module's export macro, for example MYGAME_API."
+    }
+  },
+  "adapt": [
+    "Add \"Niagara\", \"Json\", \"RenderCore\" and \"RHI\" to PublicDependencyModuleNames in Source/<Module>/<Module>.Build.cs.",
+    "Close the editor, then compile: node Tools/gam3/ue_build.mjs",
+    "Copy Tools/gam3/perf.example.json to Tools/gam3/perf.json. List under room.subjects every effect, actor class, mesh and material the game spawns during play, and under flyby.points a route through each level.",
+    "For every subject the room reports as a first-use hitch, add it to Assets under [/Script/<Module>.Gam3Prewarm] in Config/DefaultGame.ini (or call UGam3Prewarm::Warm from the game mode's BeginPlay), then prove it with --prewarm.",
+    "Call UGam3PerfProbe::Mark(this, \"wave 3\") where the game changes what it is doing, so a play run reports by name."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_build.mjs",
+    "node Tools/gam3/ue_perf.mjs --scenario room --data Tools/gam3/perf.example.json --shared"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-18",
+    "how": "Compiled into a fresh C++ project with ready-gate. Room with the engine's default Niagara system and a cube: the cold run failed the Niagara system by name (first ever run 2.0 s of load, later runs about 210 ms of load plus a 12 ms first-draw spike against 9 ms warm) and passed the cube; with --prewarm, and separately with the system listed under Gam3Prewarm in DefaultGame.ini, load was 0 ms, first use matched warm and the run passed. Fly-by over three points on a landscape level wrote one segment per leg. Play with a scratch subsystem calling Mark wrote both labels. A baseline was saved and an identical run compared ok; a run with 6 ms of busy work added per frame was reported regressed (game thread 0.7 to 6.6 ms). Those ran with --shared while other engines were running. Alone on the machine (the default, which held every engine slot): the room gave the same verdicts, and a 15 s play run driven by the walk-bot kit (--bot wander) measured 1800 frames with the bot's summary printed. Windowed runs on this Mac were locked to the 120 Hz display, which the tool reported; the render thread's own cost could not be read. Not run: a packaged or Shipping build, the game's prewarm in a packaged build, actor-class, skeletal-mesh and material subjects, Blueprint use, World Partition streaming during a fly-by, Windows and Linux."
+  }
+}

@@ -32,6 +32,10 @@ Without the MCP tools, the same things are `node <plugin>/scripts/gam3.mjs docto
 `ue-driver` → `ready-gate` (needs a C++ module and `RenderCore` in its dependencies) → `shot-director` (compile
 after) → `editor-bridge` → `world-landscape`.
 
+`perf-pass` (needs `ready-gate`, and `Niagara`, `Json` and `RHI` in the module's dependencies) and `walk-bot`
+(needs `ready-gate` and `EnhancedInput`) come once the game has things to spawn and a pawn to move: follow
+`unreal-performance` and `unreal-movement-qa`.
+
 `local-envs` is optional: install it only to run several agents on one machine with no other source of
 workspaces (see `unreal-parallel`).
 Once `ready-gate` is in, follow `unreal-readiness` for every capture and for the game's own loading and spawning.

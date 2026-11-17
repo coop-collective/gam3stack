@@ -1,7 +1,7 @@
 {
   "name": "local-envs",
   "engine": "unreal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "summary": "Optional. Copy-on-write copies of the project on one machine, each on its own branch with its own caches and editor port, so several agents can run the engine at once. Skip it when something else gives each agent a workspace.",
   "requires": [
     "ue-driver"
@@ -20,6 +20,6 @@
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon, APFS)",
     "date": "2026-11-17",
-    "how": "In a fresh C++ project on APFS: create (0.1 s, copy-on-write, uncommitted work carried over), a blind game run inside the copy with no rebuild, create from inside another environment, list, status, remove, and remove after the parent environment was gone. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Separately, cloning the content and caches of a 7.7 GB project took 0.3 s. Starting an editor inside an environment was not run. The repository's tests (create, clash detection, guarded remove, small project copied, large project refused, --full-copy) pass on macOS, Linux and Windows runners; on Linux and Windows that exercised the full-copy path only, with a tiny test project and no engine. Cloning on Linux reflink volumes and Windows ReFS or Dev Drive was not run."
+    "how": "In a fresh C++ project on APFS: create (0.1 s, copy-on-write, uncommitted work carried over), a blind game run inside the copy with no rebuild, create from inside another environment, list, status, remove, and remove after the parent environment was gone. Clash detection and the refusal to remove unmerged work are covered by the repository's tests. Separately, cloning the content and caches of a 7.7 GB project took 0.3 s. Starting an editor inside an environment was not run. The repository's tests (create, clash detection, guarded remove, small project copied, large project refused, --full-copy) pass on macOS, Linux and Windows runners; on Linux and Windows that exercised the full-copy path only, with a tiny test project and no engine. Cloning on Linux reflink volumes and Windows ReFS or Dev Drive was not run. 0.1.1: on macOS the check for a cloning volume asks the file system (APFS, same volume) instead of trying a clone-or-fail copy, which Node 25 does not implement there and so reported a cloning volume as unable to clone; create on APFS again reported copy-on-write in 0.1 s."
   }
 }

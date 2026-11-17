@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: performance in parts"
+  short_description: "Test rooms, fly-bys and self-playing runs; nothing hitches the first time it appears"
+  default_prompt: "Use $unreal-performance to run a performance pass on this game: test rooms for first-use hitches, a fly-by of each level, and a labelled play run."

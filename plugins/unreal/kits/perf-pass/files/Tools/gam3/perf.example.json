@@ -1,0 +1,20 @@
+{
+  "room": {
+    "map": "/Engine/Maps/Entry",
+    "camera": [0, 0, 300, 0, 0],
+    "distance": 600,
+    "hold": 3,
+    "subjects": [
+      "/Niagara/DefaultAssets/DefaultSystem.DefaultSystem",
+      { "asset": "/Engine/BasicShapes/Cube.Cube", "label": "cube", "hold": 2 }
+    ]
+  },
+  "flyby": {
+    "seconds": 4,
+    "points": [
+      [0, 0, 400, -10, 0],
+      [2000, 0, 400, -10, 45],
+      [2000, 2000, 600, -20, 135, 6]
+    ]
+  }
+}

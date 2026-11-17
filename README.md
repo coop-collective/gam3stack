@@ -10,8 +10,8 @@ service, no telemetry.
 
 | Plugin | For | Kits |
 | --- | --- | --- |
-| `unreal@gam3stack` | Unreal Engine 5 | `ue-driver`, `ready-gate`, `shot-director`, `editor-bridge`, `world-landscape` |
-| `unity@gam3stack` | Unity 6 | `unity-driver`, `ready-gate`, `shot-capture`, `terrain-from-data` |
+| `unreal@gam3stack` | Unreal Engine 5 | `ue-driver`, `ready-gate`, `shot-director`, `perf-pass`, `walk-bot`, `editor-bridge`, `world-landscape` |
+| `unity@gam3stack` | Unity 6 | `unity-driver`, `ready-gate`, `shot-capture`, `perf-pass`, `terrain-from-data` |
 
 Install only the engine you use. The two plugins share nothing at run time.
 
@@ -78,7 +78,7 @@ unless you say so. Copying files is the start; the agent still adapts them to yo
 
 Both were built from the example data files and use placeholder colours and meshes: the point is the pipeline, not the art.
 
-## Three ideas in every kit
+## Four ideas in every kit
 
 **Ready means ready.** A level that has started is not yet fit to look at: shaders and textures are still arriving
 and characters have not been posed. The `ready-gate` kit holds a cover in the game until the level is ready, and
@@ -97,6 +97,14 @@ On a fixed time step the game advances the same amount every frame however long 
 changes how long a run takes and never what happens in it. With no renderer, 10 seconds of game time took 0.03 s
 in Unreal and 0.006 s in Unity on the test machine; what is left is engine start-up.
 
+**Measure the game in parts.** Flying a camera through a level measures the level, not what the game does to it.
+The `perf-pass` kit measures three ways: a test room where every effect, enemy and other spawned thing appears
+alone, cold and then warm, so a hitch on first use is reported by name; a fly-by for what each part of a level
+costs; and a run of the game playing itself, split by labels the game sets. Its prewarm helper is game code: what
+the room finds is loaded and drawn once behind the loading cover, so it appears instantly the first time a player
+sees it. On Unreal the `walk-bot` kit is what plays: it drives the player's pawn on a seed and reports where it
+got stuck, fell out of the level or slid, and with no renderer it walks hundreds of times faster than real time.
+
 **One subagent, one workspace.** Agents that run the engine must not share a checkout. Where the workspaces come
 from is up to you: a platform that distributes the project to machines or virtual machines, or, on a single
 machine, the optional `local-envs` kit, which makes copy-on-write copies of the whole project on their own
@@ -111,7 +119,7 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 | Part | What it is |
 | --- | --- |
 | Kits | Scripts and engine source copied into the project: [kit format](docs/KIT-SPEC.md) |
-| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, splitting work across subagents, building worlds from data |
+| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, performance passes, movement checks, splitting work across subagents, building worlds from data |
 | MCP tools | `<engine>_doctor`, `<engine>_kits`, `<engine>_kit`, `<engine>_install` |
 | Commands | Short entry points for the above |
 
@@ -123,6 +131,8 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 | [`editor-bridge`](plugins/unreal/kits/editor-bridge/KIT.md) | One editor kept open and called from the shell through the engine's own MCP plugin: Python, any editor tool, viewport captures |
 | [`ready-gate`](plugins/unreal/kits/ready-gate/KIT.md) | Game code: a cover until the level is ready, characters never shown in their bind pose, and the readiness signal unattended runs wait on |
 | [`shot-director`](plugins/unreal/kits/shot-director/KIT.md) | Screenshots from the real game at set times after it is ready, optionally through a fixed camera, then quit |
+| [`perf-pass`](plugins/unreal/kits/perf-pass/KIT.md) | Test rooms, fly-bys and labelled play runs against a frame budget and a baseline; game code that prewarms what is spawned during play |
+| [`walk-bot`](plugins/unreal/kits/walk-bot/KIT.md) | A bot that plays the player's pawn on a seed or a route and reports stuck spots, falls, sliding, impossible speed and a camera inside geometry; failures replay exactly, with pictures |
 | [`local-envs`](plugins/unreal/kits/local-envs/KIT.md) | Optional: copy-on-write copies of the project for several agents on one machine |
 | [`world-landscape`](plugins/unreal/kits/world-landscape/KIT.md) | A level from one data file: Landscape terrain, paint layers, PCG scatter, lighting; one command rebuilds it |
 
@@ -133,16 +143,18 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 | [`unity-driver`](plugins/unity/kits/unity-driver/KIT.md) | Batch-mode compile check with the compiler errors, run a static method, run EditMode and PlayMode tests, at three profiles; the engine cap |
 | [`ready-gate`](plugins/unity/kits/ready-gate/KIT.md) | Game code: a loading cover until the scene is ready, and spawned characters never shown in their bind pose |
 | [`shot-capture`](plugins/unity/kits/shot-capture/KIT.md) | Render a scene's camera to a PNG in batch mode, once the scene is ready |
+| [`perf-pass`](plugins/unity/kits/perf-pass/KIT.md) | Test rooms, fly-bys and a self-playing run measured against a frame budget and a baseline; a prewarm helper so nothing hitches on first use |
 | [`local-envs`](plugins/unity/kits/local-envs/KIT.md) | Optional: copy-on-write copies of the project for several agents on one machine |
 | [`terrain-from-data`](plugins/unity/kits/terrain-from-data/KIT.md) | A Terrain built from a height function and paint layers defined as data |
 
 ## What was tested
 
 Each kit's `kit.json` has a `verified` entry saying which engine version and platform it was run on and what was
-run. Read it before relying on a kit elsewhere. Short version for 0.2.0: everything was run on macOS (Apple
+run. Read it before relying on a kit elsewhere. Short version for 0.3.0: everything was run on macOS (Apple
 silicon) with UE 5.9 and Unity 6000.6, in small test projects. Windows and Linux code paths exist but were not
-run. Packaged or built players were not run: the ready gates were tested in uncooked Unreal runs and Unity play
-mode only. The timings in the kit docs are from those small projects; measure your own.
+run. The Unity performance kit was also run in a built macOS player; nothing else was run in a packaged or built
+player. The timings in the kit docs are from those small projects; measure your own. On macOS a windowed Unreal
+game is locked to the display's refresh rate, so frame times there have a floor; the performance kit says when.
 
 ## Scope
 

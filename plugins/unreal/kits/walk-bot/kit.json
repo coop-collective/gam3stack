@@ -1,0 +1,36 @@
+{
+  "name": "walk-bot",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "A bot that plays the player's pawn unattended (seeded wandering or a set route) and reports stuck spots, falls out of the level, sliding, impossible speed and a camera inside geometry. With no renderer an hour of walking costs seconds; a failing seed replays exactly, with pictures.",
+  "requires": [
+    "ue-driver",
+    "ready-gate"
+  ],
+  "params": {
+    "MODULE": {
+      "description": "The C++ game module the two source files join (the directory under Source/)."
+    },
+    "MODULE_API": {
+      "description": "That module's export macro, for example MYGAME_API."
+    }
+  },
+  "adapt": [
+    "Add \"EnhancedInput\" to PublicDependencyModuleNames in Source/<Module>/<Module>.Build.cs (the bot injects into the game's move action when it has one).",
+    "Close the editor, then compile: node Tools/gam3/ue_build.mjs",
+    "Run it once and read the note lines: input=enhanced means it found the game's move action; input=movement means it calls AddMovementInput. If the action was not found, pass --move-action with its asset name.",
+    "Write down the paths a player must be able to walk (spawn to the first objective, through each door) as route files, one x,y,z per line.",
+    "For a game with more than walking, bind UGam3WalkBot::OnBotTick: do the game's actions there and call ReportIncident for the game's own rules.",
+    "Where the game moves the player on purpose (respawn, door, cutscene), call NoteTeleport() first."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_build.mjs",
+    "node Tools/gam3/ue_walk.mjs --seconds 30   (the summary line must start GAM3WALK: ok)"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-18",
+    "how": "Compiled into a C++ test project with ready-gate, using a test character and an arena built at run time. Blind profile: a clean 60 s wander passed; 600 s took 2.6 s and 3600 s took 13.4 s after start-up (about 230 to 270 times real time), 17.3 km walked; the same seed three times gave the same distance and end position, and the same again through the Enhanced Input path. Deliberate defects were each reported by name: a pawn wedged between walls and a closed 1.4 m pocket (stuck), a closed 3 m room (stuck, pacing rule), a floor with no edge walls and a floor height (fell), a 9 m teleport and a 1500 cm/s boost (speed; a teleport announced with NoteTeleport passed), an idle animation while moving (slide), a camera placed 3 m behind the pawn near walls (camera-inside), and a game rule reported through OnBotTickNative. Routes: four waypoints walked, a wall across the route failed as stuck, a time limit too short failed as unfinished, a route file was read, and a move action mapped a quarter turn off was measured and corrected. --replay at the agent profile repeated each incident at the same place and game time and wrote one picture per incident; the pictures were opened. The bot also ran inside ue_game.mjs without -Gam3BotSeconds and wrote its result at exit. Not run: the nan check, the pawn-destroyed path of fell, the Blueprint OnBotTick delegate, a real game's input assets (the test actions were made in code), play in editor, packaged builds, Windows and Linux."
+  }
+}

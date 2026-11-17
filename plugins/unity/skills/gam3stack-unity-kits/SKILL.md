@@ -39,10 +39,11 @@ install NAME [--apply]`.
 | `unity-driver` | `Tools/gam3/unity_run.mjs`: compile check, run an editor method, run tests, at a profile (blind, agent, human); `slots.mjs` caps how many engines run at once |
 | `local-envs` | Optional. `Tools/gam3/env.mjs`: copy-on-write copies of the project for several agents on one machine. Skip it when your platform provides workspaces |
 | `shot-capture` | `Gam3.Shot.Capture`: render a camera of a scene to a PNG in batch mode, once the scene is ready |
+| `perf-pass` | `Tools/gam3/unity_perf.mjs` and runtime code: test rooms, fly-bys and a self-playing run against a budget and a baseline, and a prewarm for the loading screen. Needs `ready-gate`; see `unity-performance` |
 | `terrain-from-data` | `Gam3.TerrainBuilder.Build`: a Terrain from a layout written as data |
 | `ready-gate` | runtime code for the game: a loading gate that opens when the world is ready, a spawn that never shows bind pose, first-frame captures |
 
-The other three need `unity-driver`. `ready-gate` is the only kit that becomes part of the shipped game.
+The others need `unity-driver`. `ready-gate` and the prewarm in `perf-pass` are the parts that ship in the game.
 
 After installing, the working rules are in three other skills: `unity-batch-loop` (the loop), `unity-readiness`
 (when a scene may be looked at, and what a game must do before it shows one) and `unity-parallel` (profiles,

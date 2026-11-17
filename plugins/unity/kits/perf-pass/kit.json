@@ -1,0 +1,29 @@
+{
+  "name": "perf-pass",
+  "engine": "unity",
+  "version": "0.1.0",
+  "summary": "Measure the game in parts and prove nothing hitches on first use: test rooms for effects and other spawned things, fly-bys for the world, a self-playing run split by the game's own marks, a prewarm helper for the loading screen, budgets and baselines.",
+  "requires": [
+    "unity-driver",
+    "ready-gate"
+  ],
+  "params": {},
+  "adapt": [
+    "Let Unity create the .meta files (the next compile does it) and commit them with the scripts.",
+    "Add Assets/Gam3PerfGenerated/ (and its .meta) and Builds/ to .gitignore; Logs/ should be ignored already. Commit Gam3Perf/ (data files and baselines).",
+    "Write a room data file listing every prefab the game spawns during play: effects, projectiles, enemies, pickups, UI pop-ups.",
+    "Write a fly-by data file per level, and a play data file for a scene in which the game plays itself (the game supplies the bot or demo mode).",
+    "Put Gam3.Perf.Mark(label) where the game changes what it is doing: wave start, ability, boss phase, level section.",
+    "Call Gam3.Prewarm.Run behind the game's ReadyGate with the prefabs the room showed to hitch on first use."
+  ],
+  "verify": [
+    "node Tools/gam3/unity_run.mjs compile --profile blind",
+    "node Tools/gam3/unity_perf.mjs --scenario room --data Gam3Perf/room.json --shared"
+  ],
+  "verified": {
+    "engine": "Unity 6000.6.5f1",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-18",
+    "how": "Installed with the kit installer into a small built-in-pipeline project and run with unity_perf.mjs. Room, three subjects (a cube, a particle burst with its own shader, the same burst with a script that does about 100 ms of one-time set-up on first Awake): in the editor the third subject measured first use 115.2 ms against 1.0 ms warm and the run FAILED naming it; with --prewarm it measured 0.7 against 0.8 and the run was ok. With --player (a macOS player built by the kit and run in a window) the same subject measured 102.4 against 0.8 and FAILED, and 0.9 against 0.9 with --prewarm. On the first run after its shader was written the plain burst also failed (21.4 ms against 0.9); on later runs the editor had the shader cached and it passed, so a shader-only first-use hitch was seen once and not reproduced. Fly-by through a terrain scene with four points wrote three leg segments. Baseline: saved from a fly-by alone on the machine, two more identical runs compared ok, a run slowed with the self-test option --handicap-ms 3 reported regressed (average 0.74 to 4.49 ms). Before the 1 ms floor was added, an identical run on a shared machine was wrongly called regressed (99th percentile 1.1 to 2.13 ms). Play: a test script called Perf.Mark twice and both labels appeared as segments. Waiting to be alone was seen working: the run waited while two other engine processes held slots, then ran. Not run: URP, HDRP, VFX Graph, a real game or a real effect (the subjects are synthetic), fly-by and play in a built player, Windows, Linux. The windowed player showed frames of 8 to 17 ms with nothing spawning, so first-use results below about 17 ms were not reliable there."
+  }
+}
