@@ -1,0 +1,8 @@
+{
+  "name": "unity",
+  "description": "Unity for coding agents: run the editor in batch mode, read compile errors, run tests, build terrain from data and capture screenshots. Kits are source copied into the project; includes skills, /unity:* commands and a local MCP server.",
+  "version": "0.1.0",
+  "author": { "name": "Xava Labs" },
+  "license": "MIT",
+  "keywords": ["gam3stack", "unity", "game-development", "batch-mode", "terrain", "mcp", "kits"]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "unity-driver",
+  "engine": "unity",
+  "version": "0.1.0",
+  "summary": "Run the Unity editor unattended from the shell: compile check, run an editor method, run tests, with errors pulled out of the log.",
+  "requires": [],
+  "params": {},
+  "adapt": [
+    "Add Logs/ to .gitignore if it is not there already (Unity's own template ignores it).",
+    "For `test`: the project needs com.unity.test-framework in Packages/manifest.json and at least one test assembly."
+  ],
+  "verify": [
+    "node Tools/gam3/unity_run.mjs compile"
+  ],
+  "verified": {
+    "engine": "Unity 6000.6.5f1",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "In a new built-in-pipeline project: compile passed, and failed with the error line when a broken script was added; exec passed arguments through, reported a thrown exception, a custom exit code and a missing method; EditMode tests reported 2 passed, then 1 failed by name; compile was refused while another editor held the project. Not run: PlayMode tests, Windows, Linux."
+  }
+}

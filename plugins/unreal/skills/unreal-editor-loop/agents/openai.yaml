@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: change, build, look"
+  short_description: "Script the open editor, compile, run the game and read the result"
+  default_prompt: "Use $unreal-editor-loop to make this change and show me a screenshot from the game."

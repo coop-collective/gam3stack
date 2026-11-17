@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+# per-project install state belongs to the game project, never to this repo
+.gam3/
+__pycache__/
+*.pyc

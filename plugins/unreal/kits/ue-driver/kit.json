@@ -1,0 +1,21 @@
+{
+  "name": "ue-driver",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Shell commands to compile the project's C++, run editor Python unattended, and run the game unattended with its log checked for errors.",
+  "requires": [],
+  "params": {},
+  "adapt": [
+    "Add Saved/ to .gitignore if it is not there: logs go to Saved/Logs/gam3.",
+    "If the engine is not in the launcher's default location, set UE_ROOT to the engine root."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_build.mjs"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "Installed into a fresh C++ project. ue_build.mjs compiled it (ok) and refused while an editor had the project open. ue_game.mjs ran an engine template level and a built level unattended and reported shots and log problems. ue_python.mjs ran a passing script (marker found) and a failing one (reported FAILED). Windows and Linux were not run."
+  }
+}

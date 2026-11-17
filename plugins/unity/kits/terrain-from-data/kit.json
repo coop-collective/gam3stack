@@ -1,0 +1,25 @@
+{
+  "name": "terrain-from-data",
+  "engine": "unity",
+  "version": "0.1.0",
+  "summary": "Build a Terrain (hills, a worn road, clearings, markers) from a layout written as plain functions and lists.",
+  "requires": [
+    "unity-driver"
+  ],
+  "params": {},
+  "adapt": [
+    "Edit Assets/Editor/Gam3/Gam3Layout.cs: roads, clearings, the knoll, markers, colours, size.",
+    "Let Unity create the .meta files on the next open or compile, then commit them with the scripts.",
+    "Replace the plain-colour TerrainLayers with textured ones when you have art; the builder re-assigns its own layers on every run, so change Layer() or stop calling it."
+  ],
+  "verify": [
+    "node Tools/gam3/unity_run.mjs exec Gam3.TerrainBuilder.Build",
+    "node Tools/gam3/unity_run.mjs exec Gam3.Shot.Capture -- -gam3Scene Assets/Gam3World/World.unity -gam3Out Shots/world.png   (needs the shot-capture kit)"
+  ],
+  "verified": {
+    "engine": "Unity 6000.6.5f1",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "Built the sample layout in batch mode in a new built-in-pipeline project, rebuilt it in place three times, captured it with shot-capture and checked the images: hills, the road with its fork and a clearing are visible. URP and HDRP not run."
+  }
+}

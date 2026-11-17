@@ -1,0 +1,29 @@
+{
+  "name": "unity",
+  "version": "0.1.0",
+  "description": "Unity for coding agents: batch-mode compile, method runs and tests, terrain from data, screenshots. Kits are source copied into the project.",
+  "author": { "name": "Xava Labs" },
+  "license": "MIT",
+  "keywords": ["gam3stack", "unity", "game-development", "mcp", "kits", "skills"],
+  "skills": "./skills/",
+  "mcpServers": {
+    "gam3stack-unity": {
+      "command": "node",
+      "args": ["./scripts/gam3.mjs", "mcp"]
+    }
+  },
+  "interface": {
+    "displayName": "gam3stack Unity",
+    "shortDescription": "Compile, test, build terrain and capture Unity projects unattended",
+    "longDescription": "Install small source kits into a Unity project: a batch-mode driver that reports compile errors and test results, an editor script that renders a camera to a PNG, and a terrain builder that turns a layout written as data into a Terrain with paint layers. Every install is planned first and never overwrites a file you changed.",
+    "developerName": "Xava Labs",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Use $gam3stack-unity-kits to add the batch driver to this Unity project.",
+      "Use $unity-batch-loop to check that this project compiles and its tests pass.",
+      "Use $unity-worlds to build a terrain with a road from a layout and show me a screenshot."
+    ],
+    "brandColor": "#3DDC97"
+  }
+}

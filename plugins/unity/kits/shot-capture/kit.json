@@ -1,0 +1,24 @@
+{
+  "name": "shot-capture",
+  "engine": "unity",
+  "version": "0.1.0",
+  "summary": "Render a camera view of a scene to a PNG in batch mode, so an agent can look at what it built.",
+  "requires": [
+    "unity-driver"
+  ],
+  "params": {},
+  "adapt": [
+    "Let Unity create the .meta files on the next open or compile, then commit them with the script.",
+    "Add Shots/ to .gitignore unless you want captures in the repository."
+  ],
+  "verify": [
+    "node Tools/gam3/unity_run.mjs compile",
+    "node Tools/gam3/unity_run.mjs exec Gam3.Shot.Capture -- -gam3Scene <Assets/path/To.unity> -gam3Out Shots/check.png"
+  ],
+  "verified": {
+    "engine": "Unity 6000.6.5f1",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "Rendered the terrain-from-data scene to PNG in batch mode with the main camera (1600x900) and with a free camera (1280x720); both images were opened and checked. Built-in pipeline only; URP and HDRP not run."
+  }
+}

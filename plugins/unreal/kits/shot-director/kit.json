@@ -1,0 +1,28 @@
+{
+  "name": "shot-director",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Screenshots from the real game at set times, then quit: the way to see what a change looks like without sitting at the machine.",
+  "requires": [
+    "ue-driver"
+  ],
+  "params": {
+    "MODULE": {
+      "description": "The C++ game module the two source files join (the directory under Source/)."
+    }
+  },
+  "adapt": [
+    "Close the editor, then compile: node Tools/gam3/ue_build.mjs",
+    "Nothing to register: the subsystem creates itself when one of its flags is on the command line."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_build.mjs",
+    "node Tools/gam3/ue_game.mjs --shots 4 --quit 6 --prefix check"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "Compiled into a fresh C++ project's game module. ue_game.mjs --shots 6,9 --quit 11 --cam ... wrote both PNGs and quit, including on a first run with a multi-second shader hitch. The images were opened and checked. Shipping builds and Windows were not run."
+  }
+}

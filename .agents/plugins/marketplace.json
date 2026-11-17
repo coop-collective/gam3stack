@@ -1,0 +1,8 @@
+{
+  "name": "gam3stack",
+  "interface": { "displayName": "gam3stack" },
+  "plugins": [
+    { "name": "unreal", "source": { "source": "local", "path": "./plugins/unreal" }, "policy": { "installation": "AVAILABLE" }, "category": "Developer Tools" },
+    { "name": "unity", "source": { "source": "local", "path": "./plugins/unity" }, "policy": { "installation": "AVAILABLE" }, "category": "Developer Tools" }
+  ]
+}

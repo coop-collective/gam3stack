@@ -1,0 +1,23 @@
+name: Check
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Shared core is copied into every plugin
+        run: node scripts/sync.mjs --check
+      - run: node scripts/validate.mjs
+      - run: node --test test/kits.test.mjs test/mcp.test.mjs

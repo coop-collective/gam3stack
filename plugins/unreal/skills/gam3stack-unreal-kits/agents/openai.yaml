@@ -1,0 +1,4 @@
+interface:
+  display_name: "gam3stack: Unreal kits"
+  short_description: "Check, plan, install, adapt and verify Unreal kits"
+  default_prompt: "Use $gam3stack-unreal-kits to set this Unreal project up for unattended builds and screenshots."

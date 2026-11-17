@@ -1,0 +1,25 @@
+{
+  "name": "editor-bridge",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Keep one editor open and call it from the shell: run Python in it, call any editor tool, capture a viewport image.",
+  "requires": [
+    "ue-driver"
+  ],
+  "params": {},
+  "adapt": [
+    "Add .gam3/editor.json to .gitignore (it holds the running editor's PID). Keep .gam3/lock.json in git.",
+    "Run `node Tools/gam3/ue_mcp.mjs toolsets` once and note which toolsets your engine version offers; pass the ones you need to `ue_editor.mjs start --toolsets`."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_editor.mjs start",
+    "node Tools/gam3/ue_mcp.mjs py 'import unreal\nunreal.SystemLibrary.get_engine_version()'",
+    "node Tools/gam3/ue_editor.mjs stop"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "ue_editor.mjs start waited for the editor and reported ready; status showed the port holder; stop ended that editor and left the port free. ue_mcp.mjs toolsets, py (a value back, and a Python error back with exit 1) and shot (PNG saved) all ran. UE 5.8 and Windows were not run."
+  }
+}

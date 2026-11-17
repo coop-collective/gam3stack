@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity: batch loop"
+  short_description: "Compile, run editor methods and run tests unattended"
+  default_prompt: "Use $unity-batch-loop to check that this Unity project compiles and its tests pass."

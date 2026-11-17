@@ -1,0 +1,4 @@
+interface:
+  display_name: "gam3stack: Unity kits"
+  short_description: "Plan, install, adapt and verify Unity kits"
+  default_prompt: "Use $gam3stack-unity-kits to add the batch driver to this Unity project."

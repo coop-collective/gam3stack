@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity: worlds from data"
+  short_description: "Build terrain from a layout, capture it and check the picture"
+  default_prompt: "Use $unity-worlds to build a terrain with a road and show me a screenshot."

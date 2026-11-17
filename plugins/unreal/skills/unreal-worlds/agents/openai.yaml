@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: worlds from data"
+  short_description: "Terrain, paint layers and scatter from one layout file"
+  default_prompt: "Use $unreal-worlds to build a grassy plain with a dirt road and scattered rocks."

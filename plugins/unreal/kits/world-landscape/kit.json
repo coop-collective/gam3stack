@@ -1,0 +1,26 @@
+{
+  "name": "world-landscape",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "A level built from one data file: hills, paint layers and scattered meshes made with the engine's Landscape and PCG tools, rebuilt by one command.",
+  "requires": [
+    "ue-driver",
+    "editor-bridge"
+  ],
+  "params": {},
+  "adapt": [
+    "Enable the PCG plugin in the .uproject for the scatter stage (the first editor start after enabling plugins can take several minutes).",
+    "Edit Tools/gam3/world/layout.py: MAP, ROOT, the height function, the layers, and real meshes in SCATTER.",
+    "Replace the plain-colour ground material with textures when you have them (see ground_material in build_world.py)."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_editor.mjs start",
+    "node Tools/gam3/world/build.mjs"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-17",
+    "how": "build.mjs built the example layout in a fresh project with PCG enabled: 253x253 landscape, two paint layers, lighting, 3,654 scattered instances, level saved. A game capture showed the road and clearing bare and the scatter around them. Larger landscapes and real foliage meshes were not run with this kit."
+  }
+}
