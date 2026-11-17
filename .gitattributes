@@ -1,0 +1,4 @@
+# Kits are copied byte for byte into projects and compared by hash: keep one line ending everywhere.
+* text=auto eol=lf
+*.jpg binary
+*.png binary

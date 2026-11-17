@@ -12,7 +12,7 @@ const json = (rel) => {
   try { return JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8')); } catch (e) { bad(`${rel}: ${e.message}`); return {}; }
 };
 const frontmatter = (file) => {
-  const m = /^---\n([\s\S]*?)\n---\n/.exec(fs.readFileSync(file, 'utf8'));
+  const m = /^---\n([\s\S]*?)\n---\n/.exec(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
   if (!m) return null;
   return Object.fromEntries(m[1].split('\n').map((l) => /^([A-Za-z-]+):\s*(.*)$/.exec(l)).filter(Boolean).map((x) => [x[1], x[2].replace(/^"|"$/g, '')]));
 };
