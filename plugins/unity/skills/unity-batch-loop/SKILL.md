@@ -107,3 +107,10 @@ The full editor log is at the path after `log=`. It is long; search it, do not r
 
 Windows, Linux, URP and HDRP were not run when this kit was made (see `verified` in the kit). Treat the first
 run on those as a test of the driver itself.
+
+## More than one frame
+
+Flicker, crawling shadows and a washed-out platform build never show in one screenshot. `Tools/gam3/look.mjs`
+checks a burst of frames for blinking (`blink`), a still-camera burst for anything that will not hold still
+(`shimmer`), and one view on two renderers or platforms for lost contrast and lifted blacks (`compare`). Run
+`compare` against the full-quality reference before publishing any build for another platform.

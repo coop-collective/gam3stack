@@ -96,3 +96,31 @@ test('env: create, status with a binary clash, guarded remove', (t) => {
   assert.match(env('list').stdout, /GAM3ENV: ok 0 environment/);
   assert.ok(!fs.existsSync(there));
 });
+
+test('look: blink sees a change that comes back, shimmer sees wandering, compare sees lifted blacks', async () => {
+  const { blink, lookOf, readPng, writePng } = await import('../core/kit-shared/look.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gam3-look-'));
+  const make = (name, fn) => {
+    const rgb = new Uint8Array(32 * 32 * 3);
+    for (let p = 0; p < 32 * 32; p++) { const v = fn(p % 32, Math.floor(p / 32)); rgb[p * 3] = v; rgb[p * 3 + 1] = v; rgb[p * 3 + 2] = v; }
+    const file = path.join(dir, name);
+    writePng(file, 32, 32, rgb);
+    return file;
+  };
+  const steady = (x) => (x < 16 ? 20 : 200);
+  const a = make('a.png', steady), c = make('c.png', steady);
+  const b = make('b.png', (x, y) => (x < 4 && y < 4 ? 255 : steady(x)));   // a 4x4 patch flashes for one frame
+  const r = blink([a, b, c].map(readPng));
+  assert.ok(Math.abs(r.worst - (100 * 16) / 1024) < 0.01, `blink share ${r.worst}`);
+  // An edge that moves steadily is motion, not blinking.
+  const m = [0, 1, 2].map((i) => make(`m${i}.png`, (x) => (x < 10 + i * 4 ? 20 : 200)));
+  assert.equal(blink(m.map(readPng)).worst, 0);
+  const dark = lookOf(readPng(a));
+  const lifted = lookOf(readPng(make('l.png', (x) => (x < 16 ? 70 : 200))));
+  assert.ok(lifted.black - dark.black > 15, 'the lifted picture has a higher black level');
+  const run = spawnSync(process.execPath, [path.join(root, 'core', 'kit-shared', 'look.mjs'), 'compare', a, path.join(dir, 'l.png')], { encoding: 'utf8' });
+  assert.equal(run.status, 1);
+  assert.match(run.stdout, /GAM3LOOK: FAILED compare/);
+  const still = spawnSync(process.execPath, [path.join(root, 'core', 'kit-shared', 'look.mjs'), 'shimmer', a, b, c], { encoding: 'utf8' });
+  assert.match(still.stdout, /GAM3LOOK: ok shimmer frames=3 percent=1\.56/);
+});

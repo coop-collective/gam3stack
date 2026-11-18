@@ -57,6 +57,25 @@ alone because lowering them removes things, and that would turn "is it there" in
 project's `EngineAssociation` is used, else the newest one found. `GAM3_RENDER_OFFSCREEN=1` on machines with no
 desktop session.
 
+## Looking at more than one frame: `look.mjs`
+
+A single screenshot cannot show a fault that happens over time, or tell you a platform build looks wrong. Three
+checks, on PNG files from any source (the game's own captures, a browser's, a phone's):
+
+    node Tools/gam3/look.mjs blink   f00.png f01.png f02.png ...   # changes and changes back: lights, z-fighting
+    node Tools/gam3/look.mjs shimmer f00.png f01.png f02.png ...   # still camera: anything that will not hold still
+    node Tools/gam3/look.mjs compare reference.png other.png       # same view on two renderers or platforms
+
+- **blink** ignores steady motion, so the burst may be taken during play. `--out heat.png` marks the pixels.
+- **shimmer** needs the camera and the scene still (a fixed camera, nothing moving): a crawling shadow edge or
+  boiling noise shows as a percentage and a heat picture.
+- **compare** reports brightness, contrast, black level and saturation, and fails when the other picture has
+  lost contrast, shifted in brightness or lifted its blacks: the washed-out look a mobile or web build gets when
+  its lighting path differs from the one the level was lit for. In one real case the web build of a game
+  passed every boot and input check while its black level was 11 to 12 points above the desktop build's.
+
+Take bursts a tenth of a second apart, ten frames. Summary lines start `GAM3LOOK:`; the exit code is 1 on a fail.
+
 ## Limits
 
 - Windows and Linux paths and quoting are carried over from scripts that ran on those platforms, but this kit as

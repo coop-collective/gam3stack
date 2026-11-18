@@ -140,6 +140,24 @@ Rules that came from one shipped project (UE 5.8 and 5.9; treat the numbers as s
 - **Packaged cold numbers differ from uncooked ones.** In the test project an effect that took 210 ms to load
   uncooked took 2 ms packaged; what remained was pipeline-state creation, and the prewarm removed that too.
 
+## Every platform build is looked at, not only booted
+
+A build for another renderer (mobile, web, a low tier) can pass every boot, input and error check and still look
+wrong: flat, hazy, blown out, with shadows that crawl. Those checks do not look at the picture. For each platform
+build, before it is published:
+
+1. Capture the same views as the full-quality reference (title, each level in play, the tutorial).
+2. `look.mjs compare reference.png platform.png` for each. A lifted black level or lost contrast fails.
+3. Take a ten-frame burst of each view and run `look.mjs blink`; with a still camera, `look.mjs shimmer`.
+   Flicker never shows in one frame.
+4. Read the heat pictures. A line that crawls along a wall the sun only grazes is a shadow map too coarse for
+   that surface: shorten the shadow distance, raise the resolution or the slope bias, or stop that surface
+   receiving the sun's shadow.
+
+A level lit for one lighting path (global illumination, volumetric fog, auto exposure) is not lit for another.
+Fog and exposure tuned for the full path are the usual cause of a washed-out platform build: check fog
+inscattering, exposure limits and any black-lift in post-processing on the path that lacks the rest.
+
 ## Quality tiers
 
 A tier is a set of settings that is faster and still looks right. Set every setting in every tier, from code, so
