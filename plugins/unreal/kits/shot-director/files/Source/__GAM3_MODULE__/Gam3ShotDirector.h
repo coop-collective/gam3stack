@@ -5,6 +5,8 @@
 //                             gate has opened: nothing compiling or loading, the player has a pawn). 0 is the first
 //                             frame a player sees, which is the frame most worth checking.
 //   -Gam3ShotPrefix=name      file prefix: Saved/Screenshots/<name>_00.png, <name>_01.png ... (default "shot")
+//   -Gam3ShotUI               include menus and other Slate UI in the pictures. Without it a picture holds the 3D
+//                             view and whatever the HUD draws on its canvas, but no menu, button or widget.
 //   -Gam3Quit=12              quit the game this many game seconds after it is ready
 //   -Gam3Cam=X,Y,Z,Pitch,Yaw[,FOV]
 //                             look through a fixed camera instead of the game's own view (for levels with no
@@ -42,6 +44,7 @@ private:
 	int32 FramesSinceShot = 1000;
 	int32 ReadyFrames = 0;
 
+	bool bShowUI = false;
 	bool bFixedCamera = false;
 	FVector CamLocation = FVector::ZeroVector;
 	FRotator CamRotation = FRotator::ZeroRotator;

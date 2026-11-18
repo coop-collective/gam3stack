@@ -85,6 +85,8 @@ export function judge(report, { budgetMs = 16.7, firstUseMs = 8, maxHitches = In
   return {
     frames, avg, p99, firstUse, overBudget, hitches,
     lateCompile: subjects.filter((s) => s.late_compile).map((s) => s.label),
+    // Counted, not timed: the one first-use measure a busy machine cannot spoil.
+    coldStates: subjects.reduce((n, s) => n + (s.pipeline_states || 0), 0),
     ok: frames > 0 && !firstUse.length && !overBudget.length && hitches <= maxHitches,
   };
 }
@@ -165,10 +167,10 @@ async function main(argv) {
     console.log('subject                      load  first-use   warm  steady  (ms)');
     for (const s of rep.subjects) {
       const verdict = s.missing ? '  MISSING' : firstUseCost(s) > firstUseMs ? `  FIRST-USE HITCH +${num(firstUseCost(s))}` : '';
-      console.log(`${s.label.padEnd(28).slice(0, 28)} ${num(s.load_ms).padStart(5)} ${num(s.first_use_ms).padStart(10)} ${num(s.warm_ms).padStart(6)} ${num(s.steady_ms).padStart(7)}${verdict}${s.late_compile ? '  (still compiling when shown)' : ''}`);
+      console.log(`${s.label.padEnd(28).slice(0, 28)} ${num(s.load_ms).padStart(5)} ${num(s.first_use_ms).padStart(10)} ${num(s.warm_ms).padStart(6)} ${num(s.steady_ms).padStart(7)}${verdict}${s.late_compile ? '  (still compiling when shown)' : ''}${s.pipeline_states || s.packages ? `  [first use: ${s.pipeline_states || 0} pipeline states, ${s.packages || 0} packages]` : ''}`);
     }
   }
-  for (const h of (rep.hitches || []).slice(0, 20)) console.log(`hitch: ${num(h.ms)} ms at ${num(h.at_s)}s during "${h.label}" camera=(${h.where})`);
+  for (const h of (rep.hitches || []).slice(0, 20)) console.log(`hitch: ${num(h.ms)} ms at ${num(h.at_s)}s during "${h.label}" camera=(${h.where})${h.cause ? ` cause: ${h.cause}` : ''}`);
 
   let baseline = 'none';
   if (a.baseline) {
@@ -186,7 +188,7 @@ async function main(argv) {
   if (a['save-baseline'] && ok) fs.copyFileSync(report, path.join(baseDir, `${a['save-baseline']}.json`));
   if (a['save-baseline'] && !ok) console.log('baseline not saved: the run failed');
   const list = (v) => (v.length ? v.join(',').replace(/\s+/g, '_') : '0');
-  console.log(`GAM3PERF: ${ok ? 'ok' : 'FAILED'} scenario=${scenario} frames=${j.frames} avg_ms=${num(j.avg)} p99_ms=${num(j.p99)} fps=${num(1000 / j.avg)} hitches=${j.hitches} subjects=${rep.subjects?.length || 0} first_use_fail=${list(j.firstUse)} over_budget=${list(j.overBudget)} late_compile=${list(j.lateCompile)} baseline=${baseline} display_cap=${cap || 'none'} machine_load=${Number.isFinite(busy) ? busy.toFixed(1) : '?'} exclusive=${a.shared ? 'no' : 'yes'} ready=${rd.ready} res=${rep.resolution || '?'}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} report=${report}`);
+  console.log(`GAM3PERF: ${ok ? 'ok' : 'FAILED'} scenario=${scenario} frames=${j.frames} avg_ms=${num(j.avg)} p99_ms=${num(j.p99)} fps=${num(1000 / j.avg)} hitches=${j.hitches} subjects=${rep.subjects?.length || 0} first_use_fail=${list(j.firstUse)} over_budget=${list(j.overBudget)} late_compile=${list(j.lateCompile)} first_use_pipeline_states=${j.coldStates} baseline=${baseline} display_cap=${cap || 'none'} machine_load=${Number.isFinite(busy) ? busy.toFixed(1) : '?'} exclusive=${a.shared ? 'no' : 'yes'} ready=${rd.ready} res=${rep.resolution || '?'}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} report=${report}`);
   return ok ? 0 : 1;
 }
 

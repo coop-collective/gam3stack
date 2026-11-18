@@ -91,6 +91,21 @@ written to the log when the game exits.
   `SlideSeconds` very high.
 - If the game shows a menu first, start on the level (`--map`) or skip the menu when `-Gam3Bot=` is present.
 
+## A game with its own input or movement
+
+The bot injects engine input. A pawn that moves from the game's own input struct, or a custom movement system,
+never sees it: the run then reports `no-control` (not `stuck`) and says so. Bind `OnBotDrive` once and feed the
+direction into the game's input exactly where the player's controls do:
+
+    if (UGam3WalkBot* Bot = UGam3WalkBot::Get(this))
+        Bot->OnBotDrive.BindWeakLambda(this, [this](APawn*, const FVector& Dir, bool bJump) { BotMove = FVector2D(Dir); bBotJump = bJump; });
+    // ...where the player's command is built each frame:  if (bBotDriving) Command.Move = BotMove;
+
+The summary then says `input=game`. Call `NoteTeleport()` where the game moves the player on purpose (respawn,
+door, cutscene); the note holds for half a second, because a simulation may move the pawn a few frames later.
+`camera-inside` counts only geometry a player can see, and names the actor: an invisible wall at the edge of a
+level blocks the camera channel too and is not a fault.
+
 ## Limits
 
 - The bot holds input and watches the pawn. It does not judge feel: acceleration, camera lag, whether a jump is

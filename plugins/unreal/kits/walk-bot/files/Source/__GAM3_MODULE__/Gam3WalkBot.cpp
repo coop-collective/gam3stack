@@ -4,6 +4,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -150,7 +151,7 @@ void UGam3WalkBot::FindInput(APlayerController* PC, APawn* Pawn)
 		}
 		bEnhanced = MoveAction.IsValid() && PC->GetLocalPlayer() && ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer());
 	}
-	UE_LOG(LogTemp, Display, TEXT("GAM3WALK: note input=%s pawn=%s move_action=%s jump_action=%s"), bEnhanced ? TEXT("enhanced") : TEXT("movement"), *Pawn->GetClass()->GetName(),
+	UE_LOG(LogTemp, Display, TEXT("GAM3WALK: note input=%s pawn=%s move_action=%s jump_action=%s"), OnBotDrive.IsBound() ? TEXT("game") : bEnhanced ? TEXT("enhanced") : TEXT("movement"), *Pawn->GetClass()->GetName(),
 		MoveAction.IsValid() ? *MoveAction->GetName() : TEXT("none"), JumpAction.IsValid() ? *JumpAction->GetName() : TEXT("none"));
 
 	// The slide check reads bone positions. With no renderer nothing is "recently rendered", and by default a mesh
@@ -217,7 +218,16 @@ void UGam3WalkBot::Check(UWorld* World, APlayerController* PC, APawn* Pawn, floa
 	{
 		const double Step = FVector::Dist(Location, LastLocation);
 		const double Allowed = FMath::Max3(Velocity.Size(), LastVelocity.Size(), double(MaxSpeed)) * Dt * 3.0 + 50.0;
-		if (Step > Allowed && !bTeleportNoted)
+		const bool bAnnounced = GameTime <= TeleportNotedUntil;
+		if (Step > Allowed && bAnnounced)
+		{
+			// The move the game announced. It may land a few frames after the call (a simulation that moves the
+			// pawn on its own schedule), so the note stays good for a short while and is used once.
+			TeleportNotedUntil = -1.f;
+			StuckAnchor = TrapAnchor = Location;
+			StuckTime = TrapTime = 0.f;
+		}
+		else if (Step > Allowed)
 		{
 			Clear(EKind::Speed);
 			LastLocation = Location;
@@ -228,7 +238,6 @@ void UGam3WalkBot::Check(UWorld* World, APlayerController* PC, APawn* Pawn, floa
 		}
 		else if (Step <= Allowed) Distance += Step;
 	}
-	bTeleportNoted = false;
 	if (MaxSpeed > 0.f && bOnGround && Velocity.Size2D() > MaxSpeed * SpeedMargin + 10.f)
 	{
 		OverspeedTime += Dt;
@@ -265,7 +274,13 @@ void UGam3WalkBot::Check(UWorld* World, APlayerController* PC, APawn* Pawn, floa
 	else if (bWantsMove && FallTime < 1.f)   // a jump on the spot is still stuck; a long fall is `fell`
 	{
 		StuckTime += Dt;
-		if (StuckTime > StuckSeconds)
+		if (StuckTime > StuckSeconds && Distance < 10.0 && !bNoControlReported)
+		{
+			// Never moved at all: the bot is not reaching this pawn, which says nothing about the level.
+			bNoControlReported = true;
+			ReportIncident(TEXT("no-control"), TEXT("the pawn has not moved since the bot started: its input does not reach this pawn. Bind OnBotDrive and feed the game's own input (see the kit's KIT.md)"));
+		}
+		else if (StuckTime > StuckSeconds && !bNoControlReported)
 		{
 			Raise(EKind::Stuck, FString::Printf(TEXT("input held %.1f s without leaving a %.0f cm circle"), StuckTime, StuckRadius));
 			LastStuckAt = Location;
@@ -321,9 +336,18 @@ void UGam3WalkBot::Check(UWorld* World, APlayerController* PC, APawn* Pawn, floa
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(Gam3WalkBotCamera), false, Pawn);
 		if (AActor* Target = PC->GetViewTarget()) Params.AddIgnoredActor(Target);
 		const FVector Eye = PC->PlayerCameraManager->GetCameraLocation();
-		if (World->OverlapBlockingTestByChannel(Eye, FQuat::Identity, ECC_Camera, FCollisionShape::MakeSphere(CameraRadius), Params))
+		// Only geometry a player can see counts: an invisible wall at the edge of the level blocks the camera channel
+		// too, and a view point inside one shows nothing wrong.
+		TArray<FOverlapResult> Overlaps;
+		World->OverlapMultiByChannel(Overlaps, Eye, FQuat::Identity, ECC_Camera, FCollisionShape::MakeSphere(CameraRadius), Params);
+		const FOverlapResult* Solid = Overlaps.FindByPredicate([](const FOverlapResult& O)
 		{
-			if (++CameraFrames >= 3) Raise(EKind::Camera, FString::Printf(TEXT("view point %s is inside blocking geometry"), *Where(Eye)));
+			const UPrimitiveComponent* C = O.GetComponent();
+			return O.bBlockingHit && C && C->IsVisible() && !C->bHiddenInGame && C->GetOwner() && !C->GetOwner()->IsHidden();
+		});
+		if (Solid)
+		{
+			if (++CameraFrames >= 3) Raise(EKind::Camera, FString::Printf(TEXT("view point %s is inside %s"), *Where(Eye), *GetNameSafe(Solid->GetActor())));
 		}
 		else
 		{
@@ -336,6 +360,11 @@ void UGam3WalkBot::Check(UWorld* World, APlayerController* PC, APawn* Pawn, floa
 void UGam3WalkBot::Apply(APlayerController* PC, APawn* Pawn, const FVector& WorldDir, bool bJump)
 {
 	bWantsMove = !WorldDir.IsNearlyZero();
+	if (OnBotDrive.IsBound())
+	{
+		OnBotDrive.Execute(Pawn, WorldDir, bJump);
+		return;
+	}
 	ACharacter* Character = Cast<ACharacter>(Pawn);
 	UEnhancedInputLocalPlayerSubsystem* Input = bEnhanced && PC->GetLocalPlayer() ? ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()) : nullptr;
 	if (bJump) JumpFrames = 3;
@@ -451,7 +480,7 @@ void UGam3WalkBot::PrintDone()
 		Games += FString::Printf(TEXT(" %s=%d"), *Pair.Key.ToString(), Pair.Value);
 	}
 	UE_LOG(LogTemp, Display, TEXT("GAM3WALK: done mode=%s seed=%d game_s=%.1f sim_wall_s=%.2f distance_m=%.2f end=%s input=%s route=%d/%d stuck=%d fell=%d slide=%d speed=%d nan=%d camera_inside=%d other=%d%s"),
-		bWander ? TEXT("wander") : TEXT("route"), Seed, GameTime, EndWall - BeginWall, Distance / 100.0, *Where(LastLocation), bEnhanced ? TEXT("enhanced") : TEXT("movement"),
+		bWander ? TEXT("wander") : TEXT("route"), Seed, GameTime, EndWall - BeginWall, Distance / 100.0, *Where(LastLocation), OnBotDrive.IsBound() ? TEXT("game") : bEnhanced ? TEXT("enhanced") : TEXT("movement"),
 		FMath::Min(NextWaypoint, Route.Num()), Route.Num(), Counts[0], Counts[1], Counts[2], Counts[3], Counts[4], Counts[5], Other, *Games);
 }
 

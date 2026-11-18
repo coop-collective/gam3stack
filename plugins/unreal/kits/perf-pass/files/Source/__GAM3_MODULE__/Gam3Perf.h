@@ -21,7 +21,9 @@
 // Probe command line (Tools/gam3/ue_perf.mjs passes these):
 //   -Gam3Perf=room|flyby|play   -Gam3PerfData=<file.json>   -Gam3PerfName=<report name>
 //   -Gam3PerfSeconds=<n>        play: how long to measure, in real seconds after the level is ready
-//   -Gam3PerfHitchMs=<n>        a frame longer than this is listed as a hitch with its time, label and place
+//   -Gam3PerfHitchMs=<n>        a frame longer than this is listed as a hitch with its time, label, place and
+//                               what happened in it: pipeline states created, packages loaded, garbage collection,
+//                               shader jobs still queued
 //   -Gam3PerfPrewarm            room: hand every subject to UGam3Prewarm first (proves the fix)
 // The report is written to Saved/gam3-perf/<name>.json. The probe is never created in Shipping builds, and Mark
 // costs one null check when it is not there.
@@ -56,9 +58,17 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Gam3|Perf")
 	TArray<FSoftObjectPath> Assets;
 
-	/** How many frames each asset is drawn for, after nothing is compiling any more. */
+	/**
+	 * The assets stay on screen until this many frames in a row have passed with nothing compiling and no new
+	 * pipeline state created. An effect whose emitters start late keeps creating them for a while: a fixed short
+	 * draw leaves those for the player's first real use.
+	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Gam3|Perf")
-	int32 DrawFrames = 8;
+	int32 DrawFrames = 20;
+
+	/** At least this long on screen, in real seconds, so effects reach the emitters that start late. */
+	UPROPERTY(Config, EditAnywhere, Category = "Gam3|Perf")
+	float DrawSeconds = 1.5f;
 
 	/** Real seconds after which the prewarm gives up, logs it, and lets the level open. */
 	UPROPERTY(Config, EditAnywhere, Category = "Gam3|Perf")
@@ -89,7 +99,9 @@ private:
 	bool bBlocking = false;
 	int32 Drawn = 0;
 	int32 Warmed = 0;
+	uint32 LastPsoTotal = 0;
 	double StartWall = 0.0;
+	double SpawnWall = 0.0;
 };
 
 UCLASS()
@@ -103,6 +115,7 @@ public:
 
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(UGam3PerfProbe, STATGROUP_Tickables); }
@@ -121,6 +134,7 @@ private:
 		float LoadMs = 0.f;
 		bool bMissing = false;
 		bool bLateCompile = false;
+		int32 Psos = 0, Loads = 0;
 		TArray<float> Cold, Warm;
 	};
 	struct FPoint
@@ -132,7 +146,7 @@ private:
 	struct FHitch
 	{
 		float At = 0.f, Ms = 0.f;
-		FString Label;
+		FString Label, Cause;
 		FVector Where = FVector::ZeroVector;
 	};
 	enum class ERoom : uint8 { Empty, Cold, GapA, Warm, GapB };
@@ -179,4 +193,10 @@ private:
 
 	float CamFOV = 0.f;
 	TWeakObjectPtr<ACameraActor> Camera;
+
+	// What happened during the frame that just ended: the usual causes of a slow one.
+	uint32 LastPsoTotal = 0;
+	TArray<FString> FrameLoads;
+	bool bFrameGC = false;
+	FDelegateHandle LoadHandle, EndLoadHandle, GCHandle;
 };

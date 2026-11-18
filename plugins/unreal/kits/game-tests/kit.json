@@ -1,0 +1,35 @@
+{
+  "name": "game-tests",
+  "engine": "unreal",
+  "version": "0.1.0",
+  "summary": "Scripted tests that run inside the real game and press the real keys, mouse and touch: written as a list of steps and named checks, run unattended with no renderer, with a verdict that only this run's log can give.",
+  "requires": [
+    "ue-driver",
+    "ready-gate"
+  ],
+  "params": {
+    "MODULE": {
+      "description": "The C++ game module the two source files join (the directory under Source/)."
+    },
+    "MODULE_API": {
+      "description": "That module's export macro, for example MYGAME_API."
+    }
+  },
+  "adapt": [
+    "Add \"EnhancedInput\" to PublicDependencyModuleNames in Source/<Module>/<Module>.Build.cs (Slate and SlateCore are already there for ready-gate).",
+    "Close the editor, then compile: node Tools/gam3/ue_build.mjs",
+    "Write one class derived from UGam3GameTest per behaviour, in the game module. Start with the bug found most recently by hand.",
+    "Prove each new test once against the code before its fix: node Tools/gam3/ue_test.mjs --tests <Name> --expect-fail",
+    "Menu and other UI tests need a window: run those with --profile agent."
+  ],
+  "verify": [
+    "node Tools/gam3/ue_build.mjs",
+    "node Tools/gam3/ue_test.mjs --tests all   (the summary line must start GAM3TEST: ok)"
+  ],
+  "verified": {
+    "engine": "UE 5.9",
+    "os": "macOS 26 (Apple silicon)",
+    "date": "2026-11-18",
+    "how": "Compiled into a C++ test project with ready-gate, in a copy-on-write copy of it made by local-envs. Blind profile: a test that holds W for a second and checks the pawn moved passed; the same test with the check inverted failed by name with exit status 1; --expect-fail turned those into FAILED and ok; a WaitUntil that never comes true failed by name after its 1 s and ended that test; the next test saw W released and the pawn standing still; an unknown test name and a test with no checks both failed, and --expect-fail did not accept them as the expected failure; a run stopped by a 6 s --timeout was reported FAILED no_verdict=1; --tests all ran the seven test classes then present in one start. --shots-on-fail from a blind run re-ran the two failing tests at the agent profile and wrote one picture each. Agent profile (a window): keys, a mouse button after one capturing click, a touch at the right pixel, and an injected Enhanced Input action all reached the player controller, and a key and a click sent without the test's flag were swallowed while the test's own key passed. In the blind profile the first version sent events through Slate and none arrived; events now go to the viewport client there. Not run: any Slate or UMG menu, a real mouse or keyboard moving during a run, hover from a resting cursor, gamepad keys, more than one finger, a test that changes level, PIE, a packaged build, Windows and Linux. The pictures showed this project's featureless default view, so whether a picture includes UI was not seen."
+  }
+}

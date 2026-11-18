@@ -257,7 +257,41 @@ export function start(file, args, { cwd = PROJ, env = process.env, logFile, deta
  * Run an Unreal process with an optional wall-clock limit and a shutdown watchdog: once the log shows the engine
  * exiting, the process gets `exitGraceSec` more, then it is killed (the editor sometimes hangs in teardown).
  */
+function newest(dir, re, depth = 6) {
+  let best = 0;
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return 0; }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) { if (depth > 0) best = Math.max(best, newest(p, re, depth - 1)); }
+    else if (re.test(e.name)) { try { best = Math.max(best, fs.statSync(p).mtimeMs); } catch { /* vanished */ } }
+  }
+  return best;
+}
+
+/**
+ * Things that make a run lie, checked before it starts. Returns notes; nothing is stopped or killed.
+ *   stale build   source newer than the compiled game module: the run would test old code and report on new
+ *   busy machine  other work skews timings, and a slow frame can turn a scripted tap into a hold
+ *   runaway crash reporters  a reporter left by a killed editor can sit at a full core for hours
+ */
+export function preflight(cfg) {
+  const notes = [];
+  const built = newest(path.join(cfg.proj, 'Binaries', cfg.ubtPlatform), /Editor.*\.(dylib|dll|so)$/, 1);
+  const source = newest(path.join(cfg.proj, 'Source'), /\.(h|cpp|cs)$/);
+  if (built && source > built + 2000) notes.push('the game module was compiled before the latest source change: this run tests OLD code. Run ue_build.mjs first.');
+  if (cfg.platform !== 'win32') {
+    const load = os.loadavg()[0] / os.cpus().length;
+    if (load > 0.7) notes.push(`the machine is busy with other work (load ${load.toFixed(1)} per core): timings from this run are not trustworthy.`);
+    const r = spawnSync('ps', ['-axo', 'pcpu=,pid=,command='], { encoding: 'utf8' });
+    const hot = (r.stdout || '').split('\n').map((l) => /^\s*([\d.]+)\s+(\d+)\s+(.*)$/.exec(l)).filter((m) => m && Number(m[1]) > 80 && /CrashReportClient/.test(m[3]));
+    if (hot.length) notes.push(`${hot.length} crash reporter process(es) are using a full core each (pid ${hot.map((m) => m[2]).join(', ')}), left by an engine that was killed. They skew every measurement; end them if they are yours.`);
+  }
+  return notes;
+}
+
 export async function runUnreal(cfg, file, args, { logFile, cwd = cfg.proj, timeoutSec = 0, exitGraceSec = 0, label = 'unreal' } = {}) {
+  if (args.includes('-game')) for (const n of preflight(cfg)) console.error(`${label}: note: ${n}`);
   const slot = await acquireSlot({ label });
   const { child, done } = start(file, args, { cwd, logFile });
   let killedBy = null;

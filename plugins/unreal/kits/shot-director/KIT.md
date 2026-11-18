@@ -10,6 +10,9 @@ Times are game seconds after the level is ready (the `ready-gate` kit, which thi
 frame a player sees. Capture it whenever a level or its loading changed: it is the frame that shows a level that
 was not ready.
 
+Add `--ui` when the picture must show menus or any other Slate UI (a title screen, a pause menu): without it a
+picture holds the 3D view and what the HUD draws on its canvas, and a menu screen looks empty.
+
 Add `--cam X,Y,Z,Pitch,Yaw[,FOV]` to look through a fixed camera instead of the player's view: useful for a level
 that has no player camera yet, or to frame one place.
 

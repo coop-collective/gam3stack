@@ -15,6 +15,15 @@ in any project with a C++ module and a player pawn.
 One line comes back: `GAM3WALK: ok ...` or `GAM3WALK: FAILED ... stuck=1 ...`, with an `incident:` line for each
 problem giving the kind, the position and the game time.
 
+## First run in a new game
+
+- `no-control`: the bot's input does not reach this pawn (the game has its own input struct or movement
+  system). Bind `OnBotDrive` where the player's controls feed the game; the summary then says `input=game`.
+- Many `speed` incidents all landing on one spot are respawns: call `NoteTeleport()` where the game respawns
+  or moves the player on purpose.
+- A wandering bot walks off open edges and dies. That is information (how often, where), not a bot fault; use
+  routes, or the game's own edge guard in the drive hook, when the question is about something else.
+
 ## Rules while developing
 
 1. **Walk after every change to movement, collision, level geometry, spawn points or the camera.** Wander at

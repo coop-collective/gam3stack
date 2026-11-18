@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // Run the game unattended (`-game`, no editor UI), then report what the log says went wrong.
 //   node Tools/gam3/ue_game.mjs [--profile blind|agent|human] [--map /Game/Maps/L_Level] [--res 1920x1080]
-//                               [--shots 0,5] [--quit 8] [--prefix name] [--cam "X,Y,Z,Pitch,Yaw[,FOV]"]
+//                               [--shots 0,5] [--ui] [--quit 8] [--prefix name] [--cam "X,Y,Z,Pitch,Yaw[,FOV]"]
 //                               [--ready-timeout 600] [--timeout 300] [--log FILE] [-- extra engine args]
 // --profile is how much of the engine the run needs (see PROFILES in ue_env.mjs): blind has no renderer and cannot
 // capture, agent is a small cheap picture on a fixed time step, human (the default) is what a player gets.
 // --shots, --quit, --prefix and --cam need the shot-director kit in the project: they become -Gam3Shots=,
 // -Gam3Quit=, -Gam3ShotPrefix= and -Gam3Cam=, and screenshots land in Saved/Screenshots/<prefix>_NN.png.
+// --ui puts menus and other Slate UI in the pictures (-Gam3ShotUI); without it a picture of a menu screen shows only
+// the scene behind the menu. Use it for title screens, pause menus and any check of what text is on screen.
 // Times count from the moment the level is READY (ready-gate kit), in game seconds: 0 is the first frame a player
 // sees. A run whose level never became ready, or that showed a character in its bind pose, is reported FAILED:
 // its captures are pictures of a level that was still loading. Late compiles and hitches after ready are printed.
@@ -18,7 +20,7 @@ import path from 'node:path';
 import { gameArgs, grepLines, logProblems, normalizeMap, parseArgs, profile, readiness, readLog, runMain, runUnreal, ueConfig } from './ue_env.mjs';
 
 async function main(argv) {
-  const a = parseArgs(argv, { options: ['map', 'res', 'timeout', 'log', 'shots', 'quit', 'prefix', 'cam', 'grep', 'profile', 'ready-timeout'] });
+  const a = parseArgs(argv, { flags: ['ui'], options: ['map', 'res', 'timeout', 'log', 'shots', 'quit', 'prefix', 'cam', 'grep', 'profile', 'ready-timeout'] });
   const cfg = ueConfig();
   const prof = profile(a.profile);
   if (a.shots && !prof.captures) throw new Error('--profile blind has no renderer, so it cannot take --shots. Use --profile agent.');
@@ -28,6 +30,7 @@ async function main(argv) {
   // Wait for a first run's shader compile instead of capturing through it; watch for what a player would have seen.
   const args = [...prof.args, `-Gam3ReadyTimeout=${Number(a['ready-timeout'] ?? 600)}`, '-Gam3Watch', ...a.rest];
   if (a.shots) args.push(`-Gam3Shots=${a.shots}`, `-Gam3ShotPrefix=${prefix}`);
+  if (a.ui) args.push('-Gam3ShotUI');
   if (a.quit) args.push(`-Gam3Quit=${Number(a.quit)}`);
   if (a.cam) args.push(`-Gam3Cam=${a.cam}`);
   const log = a.log ? path.resolve(a.log) : path.join(cfg.logDir, `game_${prefix}.log`);

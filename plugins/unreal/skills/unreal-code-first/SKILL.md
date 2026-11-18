@@ -28,6 +28,10 @@ What follows from that today, on UE 5:
 - Nobody can port to an API that is not public. Do not write to guessed UE6 or Verse APIs. Write UE 5 code in the
   shape above and keep the engine-facing layer thin.
 
+**Already moving in UE 5.9:** Cascade, the older particle system, is no longer part of the engine: it lives in
+a plugin, and the engine's own spawn functions for it are marked deprecated. New effects are Niagara; a project
+that still ships Cascade effects should plan their replacement.
+
 ## Rules
 
 **No Blueprint, anywhere:**

@@ -10,7 +10,7 @@ service, no telemetry.
 
 | Plugin | For | Kits |
 | --- | --- | --- |
-| `unreal@gam3stack` | Unreal Engine 5 | `ue-driver`, `ready-gate`, `shot-director`, `perf-pass`, `walk-bot`, `editor-bridge`, `world-landscape` |
+| `unreal@gam3stack` | Unreal Engine 5 | `ue-driver`, `ready-gate`, `shot-director`, `game-tests`, `perf-pass`, `walk-bot`, `editor-bridge`, `world-landscape` |
 | `unity@gam3stack` | Unity 6 | `unity-driver`, `ready-gate`, `shot-capture`, `perf-pass`, `terrain-from-data` |
 
 Install only the engine you use. The two plugins share nothing at run time.
@@ -127,7 +127,7 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 | Part | What it is |
 | --- | --- |
 | Kits | Scripts and engine source copied into the project: [kit format](docs/KIT-SPEC.md) |
-| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, performance passes, movement checks, writing gameplay as code and entities, turning on the editor's own tools, splitting work across subagents, building worlds from data |
+| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, performance passes, movement checks, scripted game tests, writing gameplay as code and entities, turning on the editor's own tools, splitting work across subagents, building worlds from data |
 | MCP tools | `<engine>_doctor`, `<engine>_kits`, `<engine>_kit`, `<engine>_install` |
 | Commands | Short entry points for the above |
 
@@ -139,6 +139,7 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 | [`editor-bridge`](plugins/unreal/kits/editor-bridge/KIT.md) | One editor kept open and called from the shell through the engine's own MCP plugin: Python, any editor tool, viewport captures |
 | [`ready-gate`](plugins/unreal/kits/ready-gate/KIT.md) | Game code: a cover until the level is ready, characters never shown in their bind pose, and the readiness signal unattended runs wait on |
 | [`shot-director`](plugins/unreal/kits/shot-director/KIT.md) | Screenshots from the real game at set times after it is ready, optionally through a fixed camera, then quit |
+| [`game-tests`](plugins/unreal/kits/game-tests/KIT.md) | Scripted tests that play the game through its real input path and report pass or fail by name; a run with no verdict line is a failure, and a new test is proved by failing on the old code first |
 | [`perf-pass`](plugins/unreal/kits/perf-pass/KIT.md) | Test rooms, fly-bys and labelled play runs against a frame budget and a baseline; game code that prewarms what is spawned during play |
 | [`walk-bot`](plugins/unreal/kits/walk-bot/KIT.md) | A bot that plays the player's pawn on a seed or a route and reports stuck spots, falls, sliding, impossible speed and a camera inside geometry; failures replay exactly, with pictures |
 | [`local-envs`](plugins/unreal/kits/local-envs/KIT.md) | Optional: copy-on-write copies of the project for several agents on one machine |
@@ -158,9 +159,10 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 ## What was tested
 
 Each kit's `kit.json` has a `verified` entry saying which engine version and platform it was run on and what was
-run. Read it before relying on a kit elsewhere. Short version for 0.4.0: everything was run on macOS (Apple
+run. Read it before relying on a kit elsewhere. Short version for 0.5.0: everything was run on macOS (Apple
 silicon) with UE 5.9 and Unity 6000.6, in small test projects. Windows and Linux code paths exist but were not
-run. The Unity performance kit was also run in a built macOS player; nothing else was run in a packaged or built
+run. From 0.5.0 the Unreal ready gate, screenshots, performance room and movement bot were also run in one real game
+with open levels, its own input system and third-party effects. The Unity performance kit was also run in a built macOS player; nothing else was run in a packaged or built
 player. The timings in the kit docs are from those small projects; measure your own. On macOS a windowed Unreal
 game is locked to the display's refresh rate, so frame times there have a floor; the performance kit says when.
 

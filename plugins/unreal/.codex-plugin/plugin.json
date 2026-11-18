@@ -1,6 +1,6 @@
 {
   "name": "unreal",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Unreal Engine kits and skills: script an open editor, build levels from data with Landscape and PCG, compile and capture the game unattended.",
   "author": {
     "name": "Xava Labs"

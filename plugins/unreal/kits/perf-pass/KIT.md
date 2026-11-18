@@ -22,13 +22,19 @@ spawned alone in front of a fixed camera in an empty level, held for a few secon
 
 - `load` is the time to bring it into memory, `first-use` the worst frame in its first second on screen, `warm`
   the same for the second spawn, `steady` its median frame while alive.
+- The bracket after a row counts the pipeline states created and packages loaded during the subject's first
+  use. It is counted, not timed, so it holds on a busy machine: `first_use_pipeline_states=` in the summary
+  should fall sharply with `--prewarm`. It covers everything created in that window, so it rarely reaches 0.
 - A subject whose first use costs more than its second by over `--first-use-ms` (default 8) fails by name.
 - `steady` is what the subject costs every frame: the place to compare two versions of one effect.
 
 ## Prewarm: the fix, and it ships
 
-`UGam3Prewarm` is game code. Give it the list and it loads each asset, draws it once in front of the camera while
-the ready gate's cover is still up, waits until nothing is compiling, and keeps the assets in memory for the level:
+`UGam3Prewarm` is game code. Give it the list and it loads each asset and draws it in front of the camera while
+the ready gate's cover is still up, until nothing is compiling and no new pipeline state has appeared for a
+while (an effect whose emitters start late keeps creating them), and keeps the assets in memory for the level.
+Loading alone is not enough, and neither is drawing out of view: only a real draw, lit as the level is lit,
+creates what the first use needs:
 
     ; Config/DefaultGame.ini
     [/Script/MyGame.Gam3Prewarm]
@@ -55,7 +61,9 @@ around a player.
 The probe measures for `--seconds` while the game plays itself: a demo mode of your own after `--`, or
 `--bot wander` with the `walk-bot` kit. Call `UGam3PerfProbe::Mark(this, "wave 3")` where the game changes what
 it is doing and frames are reported under that label. Every frame over `--hitch-ms` is listed with its time, its
-label and the camera position. A hitch found here that the room did not find is a subject missing from the list:
+label, the camera position and what happened in it: pipeline states created, packages loaded (with names),
+garbage collection, shader jobs still queued. "None of the usual causes" points at the game's own code, or at
+other work on the machine (check `machine_load=`). A hitch found here that the room did not find is a subject missing from the list:
 add it to the room, then to the prewarm.
 
 ## Budgets and baselines
@@ -83,7 +91,8 @@ add it to the room, then to the prewarm.
 
 - Needs a C++ game module, the `ready-gate` kit, and the Niagara, Json, RenderCore and RHI modules.
 - Subjects: Niagara systems, actor classes by script path (`/Script/MyGame.OrcCharacter`), static and skeletal meshes, materials. Cascade
-  particle systems and sounds are loaded but not shown.
+  particle systems too, reached by name because UE 5.9 moved Cascade out of the engine into a plugin. Sounds
+  are loaded but not played.
 - The probe is never created in Shipping builds. The prewarm is.
 - A subject that needs the game's own setup to appear (a projectile that needs a target) should be listed as an
   actor class that does that setup in its BeginPlay.

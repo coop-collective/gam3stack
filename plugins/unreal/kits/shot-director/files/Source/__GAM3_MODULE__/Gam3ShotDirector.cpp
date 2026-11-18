@@ -39,6 +39,7 @@ void UGam3ShotDirector::Initialize(FSubsystemCollectionBase& Collection)
 	}
 	FParse::Value(Cmd, TEXT("Gam3ShotPrefix="), Prefix);
 	FParse::Value(Cmd, TEXT("Gam3Quit="), QuitAt);
+	bShowUI = FParse::Param(Cmd, TEXT("Gam3ShotUI"));
 
 	FString Cam;
 	if (FParse::Value(Cmd, TEXT("Gam3Cam="), Cam, false))
@@ -110,7 +111,7 @@ bool UGam3ShotDirector::Tick(float DeltaSeconds)
 	if (!bShotPending && NextShot < ShotTimes.Num() && Elapsed >= ShotTimes[NextShot])
 	{
 		const FString Name = FPaths::ProjectSavedDir() / TEXT("Screenshots") / FString::Printf(TEXT("%s_%02d.png"), *Prefix, NextShot);
-		FScreenshotRequest::RequestScreenshot(Name, false, false);
+		FScreenshotRequest::RequestScreenshot(Name, bShowUI, false);
 		UE_LOG(LogTemp, Display, TEXT("GAM3SHOT: %s at %.1fs"), *Name, Elapsed);
 		++NextShot;
 		FramesSinceShot = 0;

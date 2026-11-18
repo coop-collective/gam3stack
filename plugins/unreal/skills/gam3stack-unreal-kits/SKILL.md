@@ -36,6 +36,9 @@ after) → `editor-bridge` → `world-landscape`.
 (needs `ready-gate` and `EnhancedInput`) come once the game has things to spawn and a pawn to move: follow
 `unreal-performance` and `unreal-movement-qa`.
 
+`game-tests` (needs `ready-gate` and `EnhancedInput`) holds the scripted tests: follow `unreal-game-tests`, and
+turn every bug found by hand into one.
+
 All kit source is C++ with no Blueprint exposure, and every project follows `unreal-code-first`: no Blueprint
 assets, Mass entities for anything numerous.
 

@@ -1,7 +1,7 @@
 {
   "name": "unity",
   "description": "Unity for coding agents: run the editor in batch mode at the cheapest profile that can see enough, read compile errors, run EditMode and PlayMode tests, capture scenes only when they are ready, build terrain from data, and ship games that never show a half-loaded world or a T-pose. Kits are source copied into the project; includes skills, /unity:* commands and a local MCP server.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Xava Labs"
   },

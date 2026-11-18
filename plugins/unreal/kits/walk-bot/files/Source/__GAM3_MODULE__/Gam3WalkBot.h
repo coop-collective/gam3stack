@@ -47,6 +47,7 @@ class UInputAction;
 class USkeletalMeshComponent;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FGam3BotTickNative, UGam3WalkBot&, APawn*, float);
+DECLARE_DELEGATE_ThreeParams(FGam3BotDrive, APawn* /*Pawn*/, const FVector& /*WorldDirection, zero to stop*/, bool /*bJump*/);
 
 UCLASS(Config = Game)
 class __GAM3_MODULE_API__ UGam3WalkBot : public UTickableWorldSubsystem
@@ -59,6 +60,13 @@ public:
 
 	/** Fires every frame the bot is driving a pawn. Add the game's own actions and checks here. */
 	FGam3BotTickNative OnBotTick;
+
+	/**
+	 * For a game whose pawn does not move from engine input (its own input struct, a custom movement system):
+	 * bind this and feed the direction into the game's input the way its own controls do. When bound, the bot
+	 * injects nothing itself. A run that could not move the pawn at all reports `no-control`, not `stuck`.
+	 */
+	FGam3BotDrive OnBotDrive;
 	/** The older name for OnBotTick. Both fire. */
 	FGam3BotTickNative OnBotTickNative;
 
@@ -66,7 +74,7 @@ public:
 	void ReportIncident(FName Kind, const FString& Detail);
 
 	/** The game moved the pawn on purpose (a respawn, a door, a cutscene): the next frame's jump is not a `speed` incident. */
-	void NoteTeleport() { bTeleportNoted = true; }
+	void NoteTeleport() { TeleportNotedUntil = GameTime + 0.5f; }
 
 	/** Game seconds since the bot started. */
 	float GetGameSeconds() const { return GameTime; }
@@ -149,12 +157,13 @@ private:
 	double BeginWall = 0.0;
 	double EndWall = 0.0;
 	double Distance = 0.0;
+	bool bNoControlReported = false;
 	FVector LastLocation = FVector::ZeroVector;
 	FVector LastVelocity = FVector::ZeroVector;
 	bool bHaveLast = false;
 	bool bHadPawn = false;
 	float NoPawnTime = 0.f;
-	bool bTeleportNoted = false;
+	float TeleportNotedUntil = -1.f;
 	TWeakObjectPtr<APawn> LastPawn;
 
 	// Input

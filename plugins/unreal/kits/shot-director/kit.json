@@ -1,7 +1,7 @@
 {
   "name": "shot-director",
   "engine": "unreal",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "summary": "Screenshots from the real game at set times after the level is ready, then quit: the way to see what a change looks like, and what a player's first frame looks like, without sitting at the machine.",
   "requires": [
     "ue-driver",
@@ -23,7 +23,7 @@
   "verified": {
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon)",
-    "date": "2026-11-17",
-    "how": "Compiled into a fresh C++ project with ready-gate. ue_game.mjs --shots 0,5 --quit 10 --cam ... wrote both PNGs under the agent (640x360) and human (1920x1080) profiles and quit; the shot at 0 showed the complete level. The images were opened and checked. Shipping builds and Windows were not run. 0.2.1: a new shot is not requested while one is still being written, and the game does not quit while one is being written; four shots at 0, 0.5, 2 and 5 s at full quality on a heavy level wrote 4 of 4."
+    "date": "2026-11-18",
+    "how": "Compiled into a fresh C++ project with ready-gate. ue_game.mjs --shots 0,5 --quit 10 --cam ... wrote both PNGs under the agent (640x360) and human (1920x1080) profiles and quit; the shot at 0 showed the complete level. The images were opened and checked. Shipping builds and Windows were not run. 0.2.1: a new shot is not requested while one is still being written, and the game does not quit while one is being written; four shots at 0, 0.5, 2 and 5 s at full quality on a heavy level wrote 4 of 4. 0.2.2: -Gam3ShotUI includes Slate UI. In a real game a title screen captured without it showed only the scene, and with it showed the title text and its prompt."
   }
 }

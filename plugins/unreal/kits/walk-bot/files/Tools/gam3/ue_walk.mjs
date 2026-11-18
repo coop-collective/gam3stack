@@ -61,7 +61,7 @@ async function main(argv) {
   if (pictures) args.push(`-Gam3BotShots=${prefix}`);
 
   const [resx, resy] = a.res ? String(a.res).split('x').map(Number) : prof.res;
-  const log = a.log ? path.resolve(a.log) : path.join(cfg.logDir, `walk_${prefix}_${mode}_${seed}.log`);
+  const log = a.log ? path.resolve(a.log) : path.join(cfg.logDir, `walk_${prefix}${a.map ? `_${String(a.map).split('/').pop().replace(/[^A-Za-z0-9_]/g, '')}` : ''}_${mode}_${seed}.log`);   // one log per level: a second level must not overwrite the first
   const shotsDir = path.join(cfg.proj, 'Saved', 'Screenshots');
   const mine = (n) => n.startsWith(`${prefix}_`) && n.endsWith('.png');
   if (pictures) {

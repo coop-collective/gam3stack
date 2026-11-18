@@ -25,13 +25,18 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "Misc/PackageName.h"
 #include "NiagaraActor.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
+#include "PipelineStateCache.h"
 #include "RenderTimer.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "ShaderCompiler.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectGlobals.h"
 #include "UnrealClient.h"
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -60,6 +65,25 @@ AActor* FGam3Subject::Spawn(UWorld* World, UObject* Asset, const FTransform& At)
 			Actor->SetDestroyOnSystemFinish(false);
 			Actor->GetNiagaraComponent()->SetAsset(System);
 			Actor->GetNiagaraComponent()->Activate(true);
+		}
+		return Actor;
+	}
+	if (Asset->GetClass()->GetName() == TEXT("ParticleSystem"))
+	{
+		// Cascade. UE 5.9 moved it out of the engine into a plugin, so it is reached by name here: the kit compiles
+		// with or without that plugin, and a project that still has Cascade effects can measure them.
+		UClass* EmitterClass = FindObject<UClass>(nullptr, TEXT("/Script/CascadeRuntime.Emitter"));
+		if (!EmitterClass) EmitterClass = FindObject<UClass>(nullptr, TEXT("/Script/Engine.Emitter"));
+		AActor* Actor = EmitterClass ? World->SpawnActor<AActor>(EmitterClass, At, Params) : nullptr;
+		if (Actor)
+		{
+			if (const FBoolProperty* Keep = FindFProperty<FBoolProperty>(EmitterClass, TEXT("bDestroyOnSystemFinish"))) Keep->SetPropertyValue_InContainer(Actor, false);
+			if (UFunction* SetTemplate = Actor->FindFunction(TEXT("SetTemplate")))
+			{
+				struct { UObject* Template; } Args{ Asset };
+				Actor->ProcessEvent(SetTemplate, &Args);
+			}
+			if (UFunction* Activate = Actor->FindFunction(TEXT("Activate"))) Actor->ProcessEvent(Activate, nullptr);
 		}
 		return Actor;
 	}
@@ -175,7 +199,7 @@ void UGam3Prewarm::Tick(float DeltaTime)
 			Keep.AddUnique(Asset);
 			++Warmed;
 			const float Side = (i - (Count - 1) * 0.5f) * 120.f;
-			if (AActor* Actor = FGam3Subject::Spawn(World, Asset, FTransform(Rotation, Location + Forward * 900.f + Right * Side)))
+			if (AActor* Actor = FGam3Subject::Spawn(World, Asset, FTransform(Rotation, Location + Forward * 500.f + Right * Side)))
 			{
 				Actor->SetActorEnableCollision(false);
 				Shown.Add(Actor);
@@ -183,13 +207,18 @@ void UGam3Prewarm::Tick(float DeltaTime)
 		}
 		Queue.Reset();
 		bSpawned = true;
+		SpawnWall = FPlatformTime::Seconds();
+		LastPsoTotal = PipelineStateCache::GetPSORuntimeCreationStats().TotalPSOCreations;
 		return;
 	}
 
 	const bool bCompiling = FAssetCompilingManager::Get().GetNumRemainingAssets() > 0;
-	if (!bCompiling) ++Drawn;
+	const uint32 PsoTotal = PipelineStateCache::GetPSORuntimeCreationStats().TotalPSOCreations;
+	const bool bNewPso = PsoTotal != LastPsoTotal;
+	LastPsoTotal = PsoTotal;
+	Drawn = (bCompiling || bNewPso) ? 0 : Drawn + 1;
 	if (Waited > TimeoutSeconds) Finish(World, true);
-	else if (Drawn >= DrawFrames) Finish(World, false);
+	else if (Drawn >= DrawFrames && FPlatformTime::Seconds() - SpawnWall >= DrawSeconds) Finish(World, false);
 }
 
 void UGam3Prewarm::Finish(UWorld* World, bool bTimedOut)
@@ -245,6 +274,28 @@ void UGam3PerfProbe::Initialize(FSubsystemCollectionBase& Collection)
 	FParse::Value(Cmd, TEXT("Gam3PerfHitchMs="), HitchMs);
 	bPrewarm = FParse::Param(Cmd, TEXT("Gam3PerfPrewarm"));
 	LoadData();
+	LastPsoTotal = PipelineStateCache::GetPSORuntimeCreationStats().TotalPSOCreations;
+	LoadHandle = FCoreUObjectDelegates::OnPackageLoadCompleted.AddWeakLambda(this, [this](UPackage* Package)
+	{
+		if (Package && FrameLoads.Num() < 64) FrameLoads.AddUnique(Package->GetName());
+	});
+	// A blocking load reports here; a streamed one through the delegate above.
+	EndLoadHandle = FCoreUObjectDelegates::OnEndLoadPackage.AddWeakLambda(this, [this](const FEndLoadPackageContext& Context)
+	{
+		for (UPackage* Package : Context.LoadedPackages)
+		{
+			if (Package && FrameLoads.Num() < 64) FrameLoads.AddUnique(Package->GetName());
+		}
+	});
+	GCHandle = FCoreUObjectDelegates::GetPostGarbageCollect().AddWeakLambda(this, [this]() { bFrameGC = true; });
+}
+
+void UGam3PerfProbe::Deinitialize()
+{
+	FCoreUObjectDelegates::OnPackageLoadCompleted.Remove(LoadHandle);
+	FCoreUObjectDelegates::OnEndLoadPackage.Remove(EndLoadHandle);
+	FCoreUObjectDelegates::GetPostGarbageCollect().Remove(GCHandle);
+	Super::Deinitialize();
 }
 
 static bool Gam3Numbers(const TSharedPtr<FJsonObject>& Object, const TCHAR* Field, TArray<double>& Out)
@@ -327,6 +378,12 @@ void UGam3PerfProbe::LoadData()
 void UGam3PerfProbe::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
+	// An empty level has no light, and an unlit subject costs less than it will in the game. The light goes in
+	// before any prewarm: a subject warmed without it is drawn with different pipeline states once it is lit.
+	if (Scenario == TEXT("room") && !TActorIterator<ADirectionalLight>(&InWorld))
+	{
+		InWorld.SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-45.0, 30.0, 0.0));
+	}
 	if (Scenario == TEXT("room") && bPrewarm && Subjects.Num())
 	{
 		TArray<FSoftObjectPath> Paths;
@@ -392,11 +449,6 @@ void UGam3PerfProbe::Tick(float DeltaTime)
 		StartWall = LastWall = RoomSince = LegSince = Now;
 		if (Scenario == TEXT("room"))
 		{
-			// An empty level has no light, and an unlit subject costs less than it will in the game.
-			if (!TActorIterator<ADirectionalLight>(World))
-			{
-				World->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-45.0, 30.0, 0.0));
-			}
 			SetLabel(TEXT("empty"));
 		}
 		else if (Scenario == TEXT("flyby")) SetLabel(TEXT("leg 1"));
@@ -408,6 +460,15 @@ void UGam3PerfProbe::Tick(float DeltaTime)
 	// This frame's delta is the cost of the frame that just ended, including whatever was spawned during it.
 	const float Ms = (Now - LastWall) * 1000.0;
 	LastWall = Now;
+	const uint32 PsoTotal = PipelineStateCache::GetPSORuntimeCreationStats().TotalPSOCreations;
+	const int32 NewPsos = int32(PsoTotal - LastPsoTotal);
+	LastPsoTotal = PsoTotal;
+	const int32 NewLoads = FrameLoads.Num();
+	if (Scenario == TEXT("room") && Subjects.IsValidIndex(RoomIndex) && RoomState == ERoom::Cold)
+	{
+		Subjects[RoomIndex].Psos += NewPsos;
+		Subjects[RoomIndex].Loads += NewLoads;
+	}
 	if (Segments.IsValidIndex(Current))
 	{
 		FSegment& Segment = Segments[Current];
@@ -423,9 +484,22 @@ void UGam3PerfProbe::Tick(float DeltaTime)
 			Hitch.Label = Segment.Label;
 			FRotator Unused;
 			Gam3ViewPoint(World, Hitch.Where, Unused);
+			TArray<FString> Parts;
+			if (NewPsos > 0) Parts.Add(FString::Printf(TEXT("pipeline states created: %d"), NewPsos));
+			if (NewLoads > 0)
+			{
+				FString Names;
+				for (int32 i = 0; i < FMath::Min(NewLoads, 3); ++i) Names += (i ? TEXT(", ") : TEXT("")) + FPackageName::GetShortName(FrameLoads[i]);
+				Parts.Add(FString::Printf(TEXT("packages loaded: %d (%s%s)"), NewLoads, *Names, NewLoads > 3 ? TEXT(", ...") : TEXT("")));
+			}
+			if (bFrameGC) Parts.Add(TEXT("garbage collection"));
+			if (GShaderCompilingManager && GShaderCompilingManager->GetNumRemainingJobs() > 0) Parts.Add(FString::Printf(TEXT("shader jobs queued: %d"), GShaderCompilingManager->GetNumRemainingJobs()));
+			Hitch.Cause = Parts.Num() ? FString::Join(Parts, TEXT("; ")) : TEXT("none of the usual causes: look at the game's own code in this frame");
 			Hitches.Add(Hitch);
 		}
 	}
+	FrameLoads.Reset();
+	bFrameGC = false;
 
 	if (Scenario == TEXT("room")) TickRoom(World, Ms, Now);
 	else if (Scenario == TEXT("flyby")) TickFlyby(World, Now);
@@ -571,6 +645,8 @@ void UGam3PerfProbe::Finish(UWorld* World)
 		Object->SetBoolField(TEXT("missing"), Subject.bMissing);
 		Object->SetBoolField(TEXT("late_compile"), Subject.bLateCompile);
 		Object->SetNumberField(TEXT("load_ms"), Subject.LoadMs);
+		Object->SetNumberField(TEXT("pipeline_states"), Subject.Psos);
+		Object->SetNumberField(TEXT("packages"), Subject.Loads);
 		Object->SetNumberField(TEXT("first_use_ms"), Gam3FirstSecond(Subject.Cold));
 		Object->SetNumberField(TEXT("warm_ms"), Gam3FirstSecond(Subject.Warm));
 		Object->SetNumberField(TEXT("steady_ms"), Gam3Rank(Subject.Cold, 0.5f));
@@ -585,6 +661,7 @@ void UGam3PerfProbe::Finish(UWorld* World)
 		Object->SetNumberField(TEXT("at_s"), Hitch.At);
 		Object->SetNumberField(TEXT("ms"), Hitch.Ms);
 		Object->SetStringField(TEXT("label"), Hitch.Label);
+		Object->SetStringField(TEXT("cause"), Hitch.Cause);
 		Object->SetStringField(TEXT("where"), FString::Printf(TEXT("%.0f,%.0f,%.0f"), Hitch.Where.X, Hitch.Where.Y, Hitch.Where.Z));
 		HitchList.Add(MakeShared<FJsonValueObject>(Object));
 	}

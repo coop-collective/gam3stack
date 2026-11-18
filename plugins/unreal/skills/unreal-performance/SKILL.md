@@ -54,8 +54,25 @@ One change, one run, keep or revert.
   (resolution, lighting, overdraw from effects), `render` is the render thread (how many things are drawn).
   The fix is different for each.
 
+## What prewarming has to be
+
+- **A load is not a warm-up.** An asset that is in memory but has never been drawn still creates its pipeline
+  states on first use. A game that only preloads has the hitch.
+- **Drawn in view, lit as the level is lit.** Something drawn under the map or behind a wall is culled and
+  creates nothing; something warmed before the level's lights exist is drawn differently once they do.
+- **Long enough.** An effect whose emitters start late keeps creating pipeline states for a second or more.
+- **Held by hard reference.** A cache of weak pointers is collected and the asset loads again mid-fight.
+- **Keep a switch that turns the prewarm off** (a command-line flag), so its gain can be measured again later.
+- Check by count as well as by time: `first_use_pipeline_states=` in the room summary is not affected by a
+  busy machine.
+
 ## Reading results
 
+- `hitch:` lines end with a cause: pipeline states created (prewarm it), packages loaded with names (reference
+  or prewarm them), garbage collection (something is churning objects), shader jobs queued. "None of the usual
+  causes" with a high `machine_load=` is the machine, not the game.
+- `machine_load=` above about 0.7, or a `note:` saying the machine is busy: the timings are not results. Run
+  again when it is quiet. Compare pairs of runs taken together, never a number from yesterday.
 - `exclusive=no` (the `--shared` flag): good for first-use hitches, worthless for frame rate.
 - `display_cap=120`: the frame was locked to the display. Frame and render columns have a floor; use `game` and
   `gpu`.

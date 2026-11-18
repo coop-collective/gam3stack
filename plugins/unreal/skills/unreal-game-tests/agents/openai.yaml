@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: tests inside the game"
+  short_description: "Scripted tests that press the real buttons, proven to fail before the fix, with a verdict only this run can give"
+  default_prompt: "Use $unreal-game-tests to turn this bug into a test that runs inside the game, show that it fails, then fix the bug."
