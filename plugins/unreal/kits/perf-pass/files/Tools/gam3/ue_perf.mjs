@@ -19,6 +19,7 @@
 // number you promise players from a packaged build.
 // Reports: Saved/gam3-perf/<name>.json. Baselines: Saved/gam3-perf/baselines/<NAME>.json (this machine only).
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { acquireSlot, enginesRunning, slotsInUse } from './slots.mjs';
 import { gameArgs, logProblems, normalizeMap, parseArgs, readiness, readLog, runMain, runUnreal, sleep, ueConfig } from './ue_env.mjs';
@@ -134,6 +135,9 @@ async function main(argv) {
   fs.rmSync(report, { force: true });
   const log = path.join(cfg.logDir, `perf_${name}.log`);
   const release = a.shared ? () => {} : await alone();
+  // Other work on the machine (a build, another program) skews every number, and no engine slot can see it.
+  const load = () => (process.platform === 'win32' ? NaN : os.loadavg()[0] / os.cpus().length);
+  const loadBefore = load();
   let r;
   try {
     r = await runUnreal(cfg, cfg.editor, gameArgs(cfg, { map: map && normalizeMap(map), resx, resy, args, execCmds: ['r.VSync 0', 't.MaxFPS 0'], logFile: log }),
@@ -174,13 +178,15 @@ async function main(argv) {
     for (const l of worse) console.log(`regressed: ${l}`);
     baseline = worse.length ? 'regressed' : 'ok';
   }
+  const busy = Math.max(loadBefore, load());
+  if (busy > 0.7) console.log(`note: the machine was busy with other work during this run (load ${busy.toFixed(1)} per core). Frame times and first-use numbers are not trustworthy; run again when it is quiet.`);
   const cap = displayCap(rep);
   if (cap) console.log(`note: frames were locked to the display (${cap} Hz), so frame time and render-thread time have a floor of ${num(1000 / cap)} ms. Below that, read the game and gpu columns; baselines compare those too.`);
   const ok = j.ok && baseline !== 'regressed' && rd.ready !== 'timeout' && !problems.fatal.length && r.killedBy !== 'timeout';
   if (a['save-baseline'] && ok) fs.copyFileSync(report, path.join(baseDir, `${a['save-baseline']}.json`));
   if (a['save-baseline'] && !ok) console.log('baseline not saved: the run failed');
   const list = (v) => (v.length ? v.join(',').replace(/\s+/g, '_') : '0');
-  console.log(`GAM3PERF: ${ok ? 'ok' : 'FAILED'} scenario=${scenario} frames=${j.frames} avg_ms=${num(j.avg)} p99_ms=${num(j.p99)} fps=${num(1000 / j.avg)} hitches=${j.hitches} subjects=${rep.subjects?.length || 0} first_use_fail=${list(j.firstUse)} over_budget=${list(j.overBudget)} late_compile=${list(j.lateCompile)} baseline=${baseline} display_cap=${cap || 'none'} exclusive=${a.shared ? 'no' : 'yes'} ready=${rd.ready} res=${rep.resolution || '?'}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} report=${report}`);
+  console.log(`GAM3PERF: ${ok ? 'ok' : 'FAILED'} scenario=${scenario} frames=${j.frames} avg_ms=${num(j.avg)} p99_ms=${num(j.p99)} fps=${num(1000 / j.avg)} hitches=${j.hitches} subjects=${rep.subjects?.length || 0} first_use_fail=${list(j.firstUse)} over_budget=${list(j.overBudget)} late_compile=${list(j.lateCompile)} baseline=${baseline} display_cap=${cap || 'none'} machine_load=${Number.isFinite(busy) ? busy.toFixed(1) : '?'} exclusive=${a.shared ? 'no' : 'yes'} ready=${rd.ready} res=${rep.resolution || '?'}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} report=${report}`);
   return ok ? 0 : 1;
 }
 

@@ -66,14 +66,14 @@ is driving:
 
     if (UGam3WalkBot* Bot = UGam3WalkBot::Get(this))
     {
-        Bot->OnBotTickNative.AddWeakLambda(this, [this](UGam3WalkBot& B, APawn* Pawn, float Dt)
+        Bot->OnBotTick.AddWeakLambda(this, [this](UGam3WalkBot& B, APawn* Pawn, float Dt)
         {
             if (B.Random().FRand() < 0.02f) TryAttack();                       // seeded: the run still replays
             if (Health < 0) B.ReportIncident(TEXT("negative-health"), TEXT("health went below zero"));
         });
     }
 
-`OnBotTick` is the same for Blueprint. `ReportIncident` logs `GAM3WALK: negative-health at=... t=...`, counts it
+`ReportIncident` logs `GAM3WALK: negative-health at=... t=...`, counts it
 in `other=` and fails the run. Where the game moves the player on purpose (respawn, door, cutscene) call
 `NoteTeleport()` first, or the jump is reported as `speed`.
 

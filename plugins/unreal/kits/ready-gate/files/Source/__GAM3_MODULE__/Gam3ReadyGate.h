@@ -14,7 +14,7 @@
 // What you add where the game needs it:
 //   - UGam3ReadyGate::ShowWhenPosed(Mesh) after spawning a character: it is drawn only once it has left its bind pose;
 //   - AddBlocker / RemoveBlocker around your own loading (a save file, a procedural level, a server handshake);
-//   - bind OnReady to start the match, the music and the intro: time should not pass behind the cover.
+//   - bind OnReady (Gate->OnReady.AddUObject(this, &AMyGameMode::StartMatch)) to start the match, the music and the intro: time should not pass behind the cover.
 // Using your own loading screen: set bCoverWithFade=False and remove the screen in OnReady.
 //
 // Settings, in Config/DefaultGame.ini under [/Script/__GAM3_MODULE__.Gam3ReadyGate]: bCoverWithFade, FadeInSeconds,
@@ -37,31 +37,25 @@ class AActor;
 class SWidget;
 class USkeletalMeshComponent;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGam3OnReady);
-
 UCLASS(Config = Game)
 class __GAM3_MODULE_API__ UGam3ReadyGate : public UTickableWorldSubsystem
 {
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintPure, Category = "Gam3|Ready", meta = (WorldContext = "WorldContextObject"))
 	static UGam3ReadyGate* Get(const UObject* WorldContextObject);
 
 	/** True once the gate has opened: the cover is coming off and the level may be judged. */
-	UFUNCTION(BlueprintPure, Category = "Gam3|Ready")
 	bool IsReady() const { return bReady; }
 
 	/** Keep the gate shut until RemoveBlocker is called with the same name. */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Ready")
 	void AddBlocker(FName Reason);
 
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Ready")
 	void RemoveBlocker(FName Reason);
 
 	/** Fires once, when the gate opens. Start gameplay time, music and intros here. */
-	UPROPERTY(BlueprintAssignable, Category = "Gam3|Ready")
-	FGam3OnReady OnReady;
+	FSimpleMulticastDelegate OnReady;
+	/** The older name for OnReady. Both fire. */
 	FSimpleMulticastDelegate OnReadyNative;
 
 	/**
@@ -69,15 +63,12 @@ public:
 	 * mesh stays visible. Otherwise the mesh (and what is attached to it) is hidden until it has left its bind
 	 * pose, or until the timeout, which is logged.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Ready")
 	static void ShowWhenPosed(USkeletalMeshComponent* Mesh, float TimeoutSeconds = 1.f);
 
 	/** ShowWhenPosed for every skeletal mesh on the actor. */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Ready")
 	static void ShowActorWhenPosed(AActor* Actor, float TimeoutSeconds = 1.f);
 
 	/** True when every bone but the root is exactly where the skeleton's bind pose puts it. */
-	UFUNCTION(BlueprintPure, Category = "Gam3|Ready")
 	static bool IsInReferencePose(USkeletalMeshComponent* Mesh);
 
 	UPROPERTY(Config, EditAnywhere, Category = "Gam3|Ready")

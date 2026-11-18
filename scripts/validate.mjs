@@ -70,6 +70,8 @@ for (const entry of market.plugins || []) {
     for (const f of k.files) {
       const text = fs.readFileSync(path.join(k.filesDir, f), 'utf8');
       if (text.includes('\u0000')) bad(`${at}: ${f} is not text`);
+      // Kits are code only: nothing in Unreal kit source may be exposed to, or depend on, Blueprints.
+      if (/\.(h|cpp)$/.test(f) && /Blueprint/.test(text)) bad(`${at}: ${f} mentions Blueprint; kit source is C++ only`);
       for (const m of `${f}\n${text}`.matchAll(/__GAM3_([A-Z][A-Z0-9_]*)__/g)) tokens.add(m[1]);
     }
     for (const t of tokens) if (!k.params[t]) bad(`${at}: token __GAM3_${t}__ has no entry in params`);

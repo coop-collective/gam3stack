@@ -29,7 +29,7 @@ mesh is shown.
 | --- | --- | --- |
 | After spawning or re-dressing a character | `UGam3ReadyGate::ShowActorWhenPosed(Character)` | It is drawn only once it has left its bind pose. If the pose can be evaluated at once the mesh is never hidden |
 | Around your own loading (save file, procedural level, server handshake) | `AddBlocker("save-file")` ... `RemoveBlocker("save-file")` | The cover stays up until your loading is done |
-| Match clock, music, intro, enemy spawns | Bind `OnReady` (Blueprint) or `OnReadyNative` (C++) | Time must not pass behind the cover |
+| Match clock, music, intro, enemy spawns | `Gate->OnReady.AddUObject(this, &AMyGameMode::StartMatch)` | Time must not pass behind the cover |
 
 Settings go in `Config/DefaultGame.ini`:
 

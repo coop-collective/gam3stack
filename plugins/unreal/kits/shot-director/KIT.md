@@ -33,5 +33,5 @@ or slow the machine is. No registration and no level actor are needed.
 
 ## Limits
 
-- Needs a C++ game module. A Blueprint-only project must add one first (File > New C++ Class in the editor).
+- Needs a C++ game module. A project without one must add one first (File > New C++ Class in the editor).
 - Close the editor before compiling.

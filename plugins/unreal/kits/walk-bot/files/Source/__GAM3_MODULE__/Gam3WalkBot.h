@@ -30,7 +30,7 @@
 // and at the end:
 //   GAM3WALK: done mode= seed= game_s= sim_wall_s= distance_m= end=(x,y,z) input= route=a/b stuck= fell= ...
 //
-// Making the bot play the game, not only walk: bind OnBotTick (or OnBotTickNative). It fires every frame the bot
+// Making the bot play the game, not only walk: bind OnBotTick. It fires every frame the bot
 // drives the pawn. Do the game's actions there (attack, interact, use Random() so the run stays repeatable), and
 // call ReportIncident for the game's own rules (health below zero, an enemy outside the arena).
 #pragma once
@@ -46,7 +46,6 @@ class UGam3WalkBot;
 class UInputAction;
 class USkeletalMeshComponent;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGam3BotTick, APawn*, Pawn, float, DeltaSeconds);
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FGam3BotTickNative, UGam3WalkBot&, APawn*, float);
 
 UCLASS(Config = Game)
@@ -56,24 +55,20 @@ class __GAM3_MODULE_API__ UGam3WalkBot : public UTickableWorldSubsystem
 
 public:
 	/** The bot of this world, or null when the run was not started with -Gam3Bot=. */
-	UFUNCTION(BlueprintPure, Category = "Gam3|Bot", meta = (WorldContext = "WorldContextObject"))
 	static UGam3WalkBot* Get(const UObject* WorldContextObject);
 
 	/** Fires every frame the bot is driving a pawn. Add the game's own actions and checks here. */
-	UPROPERTY(BlueprintAssignable, Category = "Gam3|Bot")
-	FGam3BotTick OnBotTick;
+	FGam3BotTickNative OnBotTick;
+	/** The older name for OnBotTick. Both fire. */
 	FGam3BotTickNative OnBotTickNative;
 
 	/** A rule of the game was broken. Logged once per call as `GAM3WALK: <Kind> at=... t=... <Detail>` and counted. */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Bot")
 	void ReportIncident(FName Kind, const FString& Detail);
 
 	/** The game moved the pawn on purpose (a respawn, a door, a cutscene): the next frame's jump is not a `speed` incident. */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Bot")
 	void NoteTeleport() { bTeleportNoted = true; }
 
 	/** Game seconds since the bot started. */
-	UFUNCTION(BlueprintPure, Category = "Gam3|Bot")
 	float GetGameSeconds() const { return GameTime; }
 
 	/** The run's seeded random stream. Use it for the game's own bot actions so a seed replays exactly. */

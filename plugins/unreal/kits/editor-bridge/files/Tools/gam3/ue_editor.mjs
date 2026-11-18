@@ -2,6 +2,8 @@
 // Start, check and stop an editor that listens for MCP calls (see ue_mcp.mjs). One editor per project.
 //   node Tools/gam3/ue_editor.mjs start [--port 8123] [--map /Game/Maps/L_Level] [--toolsets A,B] [--wait 900] [-- extra engine args]
 //   node Tools/gam3/ue_editor.mjs status [--port 8123]
+//   node Tools/gam3/ue_editor.mjs setup [--toolsets A,B] [--port 8123] [--write]
+//                                 what an editor opened by hand needs (plugins, the server switch, client config)
 //   node Tools/gam3/ue_editor.mjs stop
 // The port defaults to the one in .gam3/env.json (a dedicated environment made by env.mjs), else UE_MCP_PORT, else 8123.
 // The editor takes an engine slot (slots.mjs) for as long as it runs. An editor left in the background costs little
@@ -61,7 +63,7 @@ async function cmdStart(cfg, a) {
   const log = path.join(cfg.logDir, 'editor.log');
   const args = [cfg.uproject];
   if (a.map) args.push(checkMap(a.map));
-  args.push(`-ModelContextProtocolPort=${port}`, `-EnablePlugins=${a.toolsets || DEFAULT_TOOLSETS}`, `-abslog=${log}`, ...a.rest);
+  args.push(`-ModelContextProtocolPort=${port}`, '-ModelContextProtocolStartServer', `-EnablePlugins=${a.toolsets || DEFAULT_TOOLSETS}`, `-abslog=${log}`, ...a.rest);
   const slot = await acquireSlot({ label: 'ue_editor' });
   const { child } = start(cfg.editor, args, { cwd: cfg.proj, logFile: path.join(cfg.logDir, 'editor.stdout.log'), detached: true });
   child.unref();
@@ -95,6 +97,57 @@ async function cmdStatus(cfg, a) {
   return ok ? 0 : 1;
 }
 
+/** Toolset plugins this engine ships: the names that -EnablePlugins and the .uproject accept. */
+export function engineToolsets(cfg) {
+  const dir = path.join(cfg.ueRoot, 'Engine', 'Plugins', 'Experimental', 'Toolsets');
+  try { return fs.readdirSync(dir).filter((n) => fs.existsSync(path.join(dir, n, `${n}.uplugin`))).sort(); } catch { return []; }
+}
+
+/**
+ * What an editor opened BY HAND needs before an agent can call it. `start` needs none of this: it passes the port,
+ * the start switch and the toolsets on the command line. Prints the state and the steps; --write adds the plugin
+ * entries to the .uproject (the only part that belongs in version control).
+ */
+function cmdSetup(cfg, a) {
+  const port = Number(a.port || defaultPort(cfg) || process.env.UE_MCP_PORT || 8123);
+  const want = ['ModelContextProtocol', ...String(a.toolsets || DEFAULT_TOOLSETS).split(',').map((t) => t.trim()).filter(Boolean)];
+  for (const n of want) if (!/^[A-Za-z0-9_]+$/.test(n)) throw new Error(`invalid plugin name: ${n}`);
+  const shipped = engineToolsets(cfg);
+  const unknown = want.slice(1).filter((n) => shipped.length && !shipped.includes(n));
+  const data = JSON.parse(fs.readFileSync(cfg.uproject, 'utf8'));
+  const plugins = Array.isArray(data.Plugins) ? data.Plugins : [];
+  const on = (n) => plugins.some((p) => p.Name === n && p.Enabled !== false);
+  const missing = want.filter((n) => !on(n) && !unknown.includes(n));
+  console.log(`project: ${cfg.uproject}`);
+  for (const n of want) console.log(`  ${unknown.includes(n) ? 'not in this engine' : on(n) ? 'enabled' : 'not enabled'}  ${n}`);
+  if (unknown.length) console.log(`this engine ships: ${shipped.join(', ')}`);
+  if (missing.length && a.write) {
+    for (const n of missing) plugins.push({ Name: n, Enabled: true });
+    data.Plugins = plugins;
+    fs.writeFileSync(cfg.uproject, JSON.stringify(data, null, '\t') + '\n');
+    console.log(`wrote ${missing.length} plugin entr${missing.length === 1 ? 'y' : 'ies'} to the .uproject (commit it; restart the editor)`);
+  } else if (missing.length) {
+    console.log(`to enable for an editor opened by hand: run this again with --write, or tick them under Edit > Plugins (search "MCP" and "Toolset") and restart.`);
+  }
+  const url = `http://127.0.0.1:${port}/mcp`;
+  console.log(`
+The server does not start by itself. Each person turns it on once, in the editor:
+  Edit > Editor Preferences > search "Model Context Protocol" > Auto Start Server (on), Server Port Number ${port}
+  (the engine's default port is 8000; the tools here use ${port}). The same page writes a client config for you.
+Or without the UI, in Saved/Config/<Platform>Editor/EditorPerProjectUserSettings.ini (per person, not committed):
+  [/Script/ModelContextProtocol.ModelContextProtocolSettings]
+  bAutoStartServer=True
+  ServerPortNumber=${port}
+Or for one session: open the editor with -ModelContextProtocolStartServer -ModelContextProtocolPort=${port}
+
+Connecting an agent directly (optional: ue_mcp.mjs already talks to it from the shell):
+  Claude Code:  claude mcp add --transport http unreal-editor ${url}
+  .mcp.json:    { "mcpServers": { "unreal-editor": { "type": "http", "url": "${url}" } } }
+Check it:       node Tools/gam3/ue_editor.mjs status --port ${port}   then   node Tools/gam3/ue_mcp.mjs toolsets`);
+  console.log(`GAM3EDITOR: setup ${missing.length && !a.write ? `needs ${missing.length} plugin(s)` : 'plugins ok'} port=${port}`);
+  return 0;
+}
+
 async function cmdStop(cfg) {
   const st = readState(cfg);
   if (!st) {
@@ -117,12 +170,13 @@ async function cmdStop(cfg) {
 }
 
 async function main(argv) {
-  const a = parseArgs(argv, { options: ['port', 'map', 'toolsets', 'wait'] });
+  const a = parseArgs(argv, { flags: ['write'], options: ['port', 'map', 'toolsets', 'wait'] });
   const cfg = ueConfig();
   if (a._[0] === 'start') return cmdStart(cfg, a);
   if (a._[0] === 'status') return cmdStatus(cfg, a);
   if (a._[0] === 'stop') return cmdStop(cfg);
-  console.error('usage: ue_editor.mjs start [--port N] [--map /Game/...] [--toolsets A,B] [--wait SEC] [-- engine args] | status | stop');
+  if (a._[0] === 'setup') return cmdSetup(cfg, a);
+  console.error('usage: ue_editor.mjs start [--port N] [--map /Game/...] [--toolsets A,B] [--wait SEC] [-- engine args] | status | stop | setup [--toolsets A,B] [--port N] [--write]');
   return 2;
 }
 

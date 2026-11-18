@@ -15,7 +15,7 @@
 //   Config/DefaultGame.ini:
 //     [/Script/__GAM3_MODULE__.Gam3Prewarm]
 //     +Assets=/Game/FX/NS_Hit.NS_Hit
-//     +Assets=/Game/Characters/BP_Orc.BP_Orc_C
+//     +Assets=/Script/MyGame.OrcCharacter
 //   or from code, before the gate opens: UGam3Prewarm::Warm(this, Paths);
 //
 // Probe command line (Tools/gam3/ue_perf.mjs passes these):
@@ -40,7 +40,7 @@ class ACameraActor;
 /** Turns an asset of any common kind into something on screen. Shared by the prewarm and the test room. */
 struct FGam3Subject
 {
-	/** Loads the asset now. A Blueprint path with or without _C gives its actor class. */
+	/** Loads the asset now. An actor class is named by its script path: /Script/MyGame.MyEnemy. */
 	static UObject* Load(const FString& Path);
 	/** Effect, actor class, static or skeletal mesh, or material (shown on a sphere). Null for anything else. */
 	static AActor* Spawn(UWorld* World, UObject* Asset, const FTransform& At);
@@ -65,10 +65,8 @@ public:
 	float TimeoutSeconds = 60.f;
 
 	/** Add assets to warm. Call before the ready gate opens (BeginPlay is early enough) so it happens under the cover. */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Perf", meta = (WorldContext = "WorldContextObject"))
 	static void Warm(const UObject* WorldContextObject, const TArray<FSoftObjectPath>& More);
 
-	UFUNCTION(BlueprintPure, Category = "Gam3|Perf")
 	bool IsBusy() const { return bBusy; }
 
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
@@ -101,7 +99,6 @@ class __GAM3_MODULE_API__ UGam3PerfProbe : public UTickableWorldSubsystem
 
 public:
 	/** Name what the game is doing from now on ("wave 3", "boss intro"). Frames are reported under this label. */
-	UFUNCTION(BlueprintCallable, Category = "Gam3|Perf", meta = (WorldContext = "WorldContextObject"))
 	static void Mark(const UObject* WorldContextObject, FName Label);
 
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;

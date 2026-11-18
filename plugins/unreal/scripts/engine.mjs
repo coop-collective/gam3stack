@@ -95,7 +95,7 @@ export function doctor(project) {
   const editor = editorBinary(engine.root);
   add('engine', !!engine.root && fs.existsSync(editor), engine.root ? `${engine.root} (${engine.from})` : 'no engine install found; set UE_ROOT');
   const params = detectParams(project);
-  add('c++ module', !!params.MODULE, params.MODULE ? `${params.MODULE} (kits with C++ source join it)` : 'none: a Blueprint-only project cannot take C++ kits until a module is added', !params.MODULE);
+  add('c++ module', !!params.MODULE, params.MODULE ? `${params.MODULE} (kits with C++ source join it)` : 'none: a project without C++ project cannot take C++ kits until a module is added', !params.MODULE);
   if (engine.root) {
     const mcp = path.join(engine.root, 'Engine', 'Plugins', 'Experimental', 'ModelContextProtocol', 'ModelContextProtocol.uplugin');
     add('editor MCP plugin', fs.existsSync(mcp), fs.existsSync(mcp) ? 'ships with this engine (experimental); the editor-bridge kit uses it' : 'not in this engine: the editor-bridge kit needs UE 5.8 or newer', !fs.existsSync(mcp));

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unreal: code first, entities over actors"
+  short_description: "C++ only, no Blueprints, Mass entities for anything numerous, ready for the engine's next version"
+  default_prompt: "Use $unreal-code-first to plan this gameplay feature in C++ with Mass entities and no Blueprint assets."

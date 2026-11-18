@@ -8,7 +8,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "DynamicRHI.h"
-#include "Engine/Blueprint.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -41,7 +40,6 @@
 UObject* FGam3Subject::Load(const FString& Path)
 {
 	UObject* Asset = StaticLoadObject(UObject::StaticClass(), nullptr, *Path, nullptr, LOAD_NoWarn);
-	if (UBlueprint* Blueprint = Cast<UBlueprint>(Asset)) Asset = Blueprint->GeneratedClass;
 #if WITH_EDITOR
 	// An uncooked run compiles an effect's scripts the first time it is asked for. A packaged game never does.
 	if (UNiagaraSystem* System = Cast<UNiagaraSystem>(Asset)) System->WaitForCompilationComplete(true, false);

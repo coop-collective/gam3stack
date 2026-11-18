@@ -11,6 +11,43 @@ editor that stays open: no start-up cost per step, and results come back as JSON
     node Tools/gam3/ue_mcp.mjs shot out.png --world /Game/Maps/L_Level.L_Level --at 0,0,100
     node Tools/gam3/ue_editor.mjs stop                  # before any C++ compile
 
+## Turning the editor's tools on
+
+`ue_editor.mjs start` needs no set-up: it passes the port, the server switch and the tool plugins on the command
+line. Set-up is only needed for an editor **opened by hand** (or by a person on the team), and it has three parts
+that are easy to miss because the engine does none of them by default:
+
+    node Tools/gam3/ue_editor.mjs setup            # shows what is on, and prints the steps below for this project
+    node Tools/gam3/ue_editor.mjs setup --write    # adds the plugin entries to the .uproject
+
+1. **Plugins, per project (commit this).** `ModelContextProtocol` ("Unreal MCP") is the server. Each group of
+   tools is its own plugin under `Engine/Plugins/Experimental/Toolsets`, and none is on by default. Without any,
+   the server answers with nothing useful. `--write` adds them to the `.uproject`; by hand it is Edit > Plugins,
+   search "MCP" and "Toolset", restart.
+2. **Start the server, per person (not committed).** Edit > Editor Preferences > "Model Context Protocol" >
+   Auto Start Server, and set Server Port Number (the engine's default is 8000; these tools use 8123). The
+   setting is stored in `Saved/Config/<Platform>Editor/EditorPerProjectUserSettings.ini`, so every person and
+   every fresh checkout does it once. For one session: `-ModelContextProtocolStartServer` on the command line.
+3. **Point the agent at it (optional).** `ue_mcp.mjs` already calls it from the shell. To give an agent the
+   tools directly: `claude mcp add --transport http unreal-editor http://127.0.0.1:8123/mcp`, or let the
+   preferences page write the config for your client.
+
+Which tool plugins to enable (`--toolsets A,B`; the default is the first five):
+
+| Plugin | For | Run here |
+| --- | --- | --- |
+| `EditorToolset` | Python in the editor, actors, assets, levels. The one everything else leans on | yes |
+| `SceneCaptureToolset` | Viewport and camera captures (`ue_mcp.mjs shot`) | yes |
+| `PCGToolset` | Procedural content graphs (`world-landscape`) | yes |
+| `ConsoleToolset` | Console variables and commands | yes |
+| `GeometryToolset` | Mesh building and editing | yes |
+| `NiagaraToolsets`, `PerfToolset`, `AutomationTestToolset`, `LiveCodingToolset`, `InputToolset`, `StateTreeToolset`, `NavMeshToolset`, `PhysicsToolsets`, `GameplayTagsToolset`, `ConfigSettingsToolset` | Add one when the work needs it; read it with `ue_mcp.mjs describe` first | no |
+| `AllToolsets` | Everything at once: dozens of plugins, slower start, a tool list too long to be useful | no |
+| `BlueprintToolsets` | Leave off: these projects are code only (see `unreal-code-first`) | no |
+
+The server lists four meta-tools (`list_toolsets`, `describe_toolsets`, `describe_tools`, `call_tool`) rather
+than every tool, so an agent discovers tools on demand; `ue_mcp.mjs toolsets` and `describe` are the same calls.
+
 ## Things that cost time when not known
 
 - **Python: imports go at the top level of the script.** An import inside a function is rejected.

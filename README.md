@@ -78,6 +78,14 @@ unless you say so. Copying files is the start; the agent still adapts them to yo
 
 Both were built from the example data files and use placeholder colours and meshes: the point is the pipeline, not the art.
 
+## Code only
+
+Everything here is text an agent can read, diff and review: C++, C#, scripts and data files. The Unreal kits
+expose nothing to Blueprints, and the `unreal-code-first` skill sets the rule for the game itself: no Blueprint
+assets, and Mass entities (data in fragments, behaviour in processors) for anything there are many of. That is
+also the shape reported for Unreal Engine 6, which is said to drop Blueprints and Actors for entities and
+components; the skill says what is known, what is only reported, and has a Mass example compiled on UE 5.9.
+
 ## Four ideas in every kit
 
 **Ready means ready.** A level that has started is not yet fit to look at: shaders and textures are still arriving
@@ -119,7 +127,7 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 | Part | What it is |
 | --- | --- |
 | Kits | Scripts and engine source copied into the project: [kit format](docs/KIT-SPEC.md) |
-| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, performance passes, movement checks, splitting work across subagents, building worlds from data |
+| Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, performance passes, movement checks, writing gameplay as code and entities, turning on the editor's own tools, splitting work across subagents, building worlds from data |
 | MCP tools | `<engine>_doctor`, `<engine>_kits`, `<engine>_kit`, `<engine>_install` |
 | Commands | Short entry points for the above |
 
@@ -150,7 +158,7 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 ## What was tested
 
 Each kit's `kit.json` has a `verified` entry saying which engine version and platform it was run on and what was
-run. Read it before relying on a kit elsewhere. Short version for 0.3.0: everything was run on macOS (Apple
+run. Read it before relying on a kit elsewhere. Short version for 0.4.0: everything was run on macOS (Apple
 silicon) with UE 5.9 and Unity 6000.6, in small test projects. Windows and Linux code paths exist but were not
 run. The Unity performance kit was also run in a built macOS player; nothing else was run in a packaged or built
 player. The timings in the kit docs are from those small projects; measure your own. On macOS a windowed Unreal

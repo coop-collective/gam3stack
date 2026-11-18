@@ -33,7 +33,7 @@ the ready gate's cover is still up, waits until nothing is compiling, and keeps 
     ; Config/DefaultGame.ini
     [/Script/MyGame.Gam3Prewarm]
     +Assets=/Game/FX/NS_Explosion.NS_Explosion
-    +Assets=/Game/Enemies/BP_Orc.BP_Orc_C
+    +Assets=/Script/MyGame.OrcCharacter
 
 or from code, in the game mode's BeginPlay: `UGam3Prewarm::Warm(this, Paths)` (for lists that depend on the
 level or the chosen character). It holds the gate with a blocker named `prewarm` and logs
@@ -82,7 +82,7 @@ add it to the room, then to the prewarm.
 ## Limits
 
 - Needs a C++ game module, the `ready-gate` kit, and the Niagara, Json, RenderCore and RHI modules.
-- Subjects: Niagara systems, actor classes (Blueprint or C++), static and skeletal meshes, materials. Cascade
+- Subjects: Niagara systems, actor classes by script path (`/Script/MyGame.OrcCharacter`), static and skeletal meshes, materials. Cascade
   particle systems and sounds are loaded but not shown.
 - The probe is never created in Shipping builds. The prewarm is.
 - A subject that needs the game's own setup to appear (a projectile that needs a target) should be listed as an

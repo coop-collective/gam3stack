@@ -36,6 +36,9 @@ after) → `editor-bridge` → `world-landscape`.
 (needs `ready-gate` and `EnhancedInput`) come once the game has things to spawn and a pawn to move: follow
 `unreal-performance` and `unreal-movement-qa`.
 
+All kit source is C++ with no Blueprint exposure, and every project follows `unreal-code-first`: no Blueprint
+assets, Mass entities for anything numerous.
+
 `local-envs` is optional: install it only to run several agents on one machine with no other source of
 workspaces (see `unreal-parallel`).
 Once `ready-gate` is in, follow `unreal-readiness` for every capture and for the game's own loading and spawning.

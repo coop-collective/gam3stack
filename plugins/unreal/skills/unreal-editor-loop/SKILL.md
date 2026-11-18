@@ -24,6 +24,14 @@ All commands run from the project directory.
 A normal cycle: edit by script in the open editor → save → run the game with shots → read the PNGs and the
 `GAM3GAME:` line → adjust. For C++: stop the editor → build → run the game.
 
+## If the editor's tools are not there
+
+`ue_editor.mjs start` turns everything on by itself. An editor opened by hand answers nothing until three things
+are done, none of which the engine does by default: the tool plugins are enabled in the project, the server is
+set to start (a per-person editor preference), and the port matches. Run `node Tools/gam3/ue_editor.mjs setup`:
+it shows which are missing and prints the exact steps (`--write` adds the plugins to the `.uproject`). The
+`editor-bridge` kit's KIT.md has the table of which tool plugins to enable and which to leave off.
+
 ## Editor Python through the bridge
 
 - Explore first: `ue_mcp.mjs toolsets`, `describe <Toolset>`, `schema <Toolset.Tool>`. The engine documents its own

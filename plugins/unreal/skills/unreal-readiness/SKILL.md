@@ -52,10 +52,10 @@ Build these in from the first playable level; they are cheap then and expensive 
 
 | Cause | Fix |
 | --- | --- |
-| The animation or animation blueprint is loaded async (a soft reference) and arrives after the mesh is visible | Load it before spawning, or spawn then `ShowActorWhenPosed` |
+| The animation asset is loaded async (a soft reference) and arrives after the mesh is visible | Load it before spawning, or spawn then `ShowActorWhenPosed` |
 | The mesh or animation class is set in code after the actor is spawned and shown | Set it before the component registers (deferred spawn), or `ShowActorWhenPosed` after setting it |
 | The mesh is swapped at run time (character select, equipment) | `ShowActorWhenPosed` after every swap |
-| The animation blueprint's first state waits on a variable that is not set on the first frame | Give the state machine a valid entry pose; set the variables before the first update |
+| The animation instance's first state waits on a variable that is not set on the first frame | Give the state machine a valid entry pose; set the variables before the first update |
 | The actor spawns outside the view; by default such a mesh does not animate, then it enters view un-posed | `ShowActorWhenPosed`, or set the mesh to always tick its pose if it must be right the moment it appears |
 
 ### Why a level looks broken at first, and the fix

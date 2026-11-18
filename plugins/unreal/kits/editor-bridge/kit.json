@@ -1,7 +1,7 @@
 {
   "name": "editor-bridge",
   "engine": "unreal",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "summary": "Keep one editor open and call it from the shell: run Python in it, call any editor tool, capture a viewport image.",
   "requires": [
     "ue-driver"
@@ -9,7 +9,8 @@
   "params": {},
   "adapt": [
     "Add .gam3/editor.json to .gitignore (it holds the running editor's PID). Keep .gam3/lock.json in git.",
-    "Run `node Tools/gam3/ue_mcp.mjs toolsets` once and note which toolsets your engine version offers; pass the ones you need to `ue_editor.mjs start --toolsets`."
+    "Run `node Tools/gam3/ue_mcp.mjs toolsets` once and note which toolsets your engine version offers; pass the ones you need to `ue_editor.mjs start --toolsets`.",
+    "For an editor opened by hand: node Tools/gam3/ue_editor.mjs setup shows which tool plugins and settings are missing; --write adds the plugins to the .uproject."
   ],
   "verify": [
     "node Tools/gam3/ue_editor.mjs start",
@@ -19,7 +20,7 @@
   "verified": {
     "engine": "UE 5.9",
     "os": "macOS 26 (Apple silicon)",
-    "date": "2026-11-17",
-    "how": "Installed into a fresh C++ project. ue_editor.mjs start, a Python call through ue_mcp.mjs, and stop; the editor held an engine slot while it ran and the slot was free after stop. Toolset listing, error paths and viewport capture were run for 0.1.0 and not again. Starting an editor inside a dedicated environment (the port from .gam3/env.json) was not run. Windows and Linux were not run."
+    "date": "2026-11-18",
+    "how": "Installed into a fresh C++ project. ue_editor.mjs start, a Python call through ue_mcp.mjs, and stop; the editor held an engine slot while it ran and the slot was free after stop. Toolset listing, error paths and viewport capture were run for 0.1.0 and not again. Starting an editor inside a dedicated environment (the port from .gam3/env.json) was not run. Windows and Linux were not run. 0.3.0: start also passes -ModelContextProtocolStartServer. New setup command: it listed the six plugins as not enabled in a fresh project, --write added them to the .uproject, and an unknown toolset name was reported as not in this engine. An editor then opened with no switches, with the plugins from the .uproject and bAutoStartServer and ServerPortNumber set in the per-user settings file, answered on the port in 15 s and ran a Python call. The claude mcp add line and the preferences page were not exercised; toolsets marked 'no' in the KIT.md table were not run."
   }
 }

@@ -492,7 +492,7 @@ void UGam3WalkBot::Tick(float DeltaTime)
 			Check(World, PC, Pawn, DeltaTime);
 			Drive(PC, Pawn, DeltaTime);
 			OnBotTickNative.Broadcast(*this, Pawn, DeltaTime);
-			OnBotTick.Broadcast(Pawn, DeltaTime);
+			OnBotTick.Broadcast(*this, Pawn, DeltaTime);
 		}
 		else if (bHadPawn)
 		{
