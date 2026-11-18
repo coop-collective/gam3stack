@@ -71,6 +71,28 @@ that still ships Cascade effects should plan their replacement.
   result.
 - Prefer subsystems (`UWorldSubsystem`, `UGameInstanceSubsystem`) to manager Actors placed in levels.
 
+## Lessons from a game built on Mass
+
+From one project whose whole combat simulation is Mass fragments (read from its notes and code, not measured
+here):
+
+- **Fragments hold plain data and a stable small id, never object pointers.** Then the state can be copied for a
+  replay or rollback and sent to a server as it is.
+- **Things that fly or fall in numbers are entities drawn by one instanced mesh**, not an Actor each.
+- **A simulation that must replay exactly runs its queries by hand, in a fixed order, at a fixed step**, not as
+  automatically scheduled processors. Processors are the right default for everything else.
+- **Tick the simulation before physics, with the pawns' ticks as prerequisites.** Ticked after, what the player
+  sees is a frame late.
+- **Presentation reads fragments and events and never writes them.** Anything the visuals move that the rules
+  depend on (a collider, a door) is a hidden input and breaks replay.
+- **One small quantized input command per entity per step**, with press and release worked out inside the
+  simulation, is what makes input replayable and makes a test bot the same as a player.
+- **The simulation itself was cheap** (well under a millisecond a frame for a small fight). The costs were in
+  what draws it. Still unmeasured there, and worth watching as entity counts grow: creating and destroying
+  entities every event, arrays allocated every step, and copying several fragments to read one value.
+- **Lighting at scale follows the same rule:** many entities must not mean many lights. Give a light to the few
+  that need one, pool the flashes, and count lights in every measured run (`unreal-performance`).
+
 ## A minimal Mass set-up (compiled and run on UE 5.9)
 
 Module dependencies in `<Module>.Build.cs`: `"MassCore"`, `"MassEntity"`. Enable the `MassGameplay` plugin in the

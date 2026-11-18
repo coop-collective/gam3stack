@@ -6,14 +6,14 @@
     {
       "name": "unreal",
       "description": "Unreal Engine: drive the editor from the shell, build worlds with Landscape and PCG, compile and capture unattended. Kits you copy into the project, skills, /unreal:* commands, local MCP server.",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "source": "./plugins/unreal",
       "author": { "name": "Xava Labs" }
     },
     {
       "name": "unity",
       "description": "Unity: run the editor in batch mode, read compile errors, run tests, build terrain from data and capture screenshots. Kits you copy into the project, skills, /unity:* commands, local MCP server.",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "source": "./plugins/unity",
       "author": { "name": "Xava Labs" }
     }

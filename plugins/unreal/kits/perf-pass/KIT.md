@@ -74,6 +74,23 @@ add it to the room, then to the prewarm.
   `Saved/gam3-perf/baselines/` and mean something only on the machine that made them.
 - One change, one run, keep or revert. Two changes in one run tell you nothing about either.
 
+## Lights
+
+Every segment ends with `lights/shadowed`: the most lights lit at once while that label was current, and how many
+cast shadows. `--max-lights N` and `--max-shadowed N` fail a run that goes over. The counts do not depend on how
+busy the machine is, so they are a result even when the timings are not.
+
+## In a packaged game
+
+The same flags work on a packaged Development build (the probe is absent from Shipping). The runner does not
+drive a packaged game yet, so pass them by hand:
+
+    MyGame.app/Contents/MacOS/MyGame /Game/Maps/L_Level -Gam3Perf=room -Gam3PerfData=Saved/gam3-perf/perf.json -Gam3PerfName=room
+
+A path starting `Saved/` is read from wherever the packaged game keeps its saved files (on macOS the app's
+sandbox container, under `~/Library/Containers/<bundle id>/...`), and the report is written there. Cook the
+room's level and every subject, or they are missing.
+
 ## Reading the numbers honestly
 
 - The run waits until no other engine is running and holds every engine slot. `--shared` skips that, and is only

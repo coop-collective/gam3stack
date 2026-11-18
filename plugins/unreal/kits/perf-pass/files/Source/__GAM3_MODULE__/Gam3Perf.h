@@ -126,6 +126,8 @@ private:
 	{
 		FString Label;
 		TArray<float> Frame, Game, Render, Gpu;
+		/** The most lights lit at once while this label was current: all, those that move or change, those casting shadows. */
+		int32 Lights = 0, DynamicLights = 0, ShadowedLights = 0;
 	};
 	struct FRoomSubject
 	{
@@ -196,6 +198,7 @@ private:
 
 	// What happened during the frame that just ended: the usual causes of a slow one.
 	uint32 LastPsoTotal = 0;
+	int32 LightCountdown = 0;
 	TArray<FString> FrameLoads;
 	bool bFrameGC = false;
 	FDelegateHandle LoadHandle, EndLoadHandle, GCHandle;

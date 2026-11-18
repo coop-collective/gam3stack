@@ -1,6 +1,6 @@
 {
   "name": "unity",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Unity for coding agents: batch-mode compile, method runs and tests at blind, agent or human profile, readiness-checked screenshots, terrain from data, loading gates and posed spawns. Kits are source copied into the project.",
   "author": {
     "name": "Xava Labs"

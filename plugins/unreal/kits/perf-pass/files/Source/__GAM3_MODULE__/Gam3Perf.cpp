@@ -4,6 +4,7 @@
 #include "AssetCompilingManager.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "Components/LightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
@@ -268,7 +269,12 @@ void UGam3PerfProbe::Initialize(FSubsystemCollectionBase& Collection)
 	const TCHAR* Cmd = FCommandLine::Get();
 	FParse::Value(Cmd, TEXT("Gam3Perf="), Scenario);
 	FParse::Value(Cmd, TEXT("Gam3PerfData="), DataFile, false);
-	if (!DataFile.IsEmpty() && FPaths::IsRelative(DataFile)) DataFile = FPaths::ProjectDir() / DataFile;
+	if (!DataFile.IsEmpty() && FPaths::IsRelative(DataFile))
+	{
+		// A packaged game keeps Saved somewhere else (on macOS, in the app's sandbox container): follow it there.
+		FString InSaved = DataFile;
+		DataFile = InSaved.RemoveFromStart(TEXT("Saved/")) ? FPaths::ProjectSavedDir() / InSaved : FPaths::ProjectDir() / DataFile;
+	}
 	FParse::Value(Cmd, TEXT("Gam3PerfName="), Name);
 	FParse::Value(Cmd, TEXT("Gam3PerfSeconds="), PlaySeconds);
 	FParse::Value(Cmd, TEXT("Gam3PerfHitchMs="), HitchMs);
@@ -279,7 +285,8 @@ void UGam3PerfProbe::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		if (Package && FrameLoads.Num() < 64) FrameLoads.AddUnique(Package->GetName());
 	});
-	// A blocking load reports here; a streamed one through the delegate above.
+#if WITH_EDITOR
+	// Uncooked runs only (the delegate does not exist in a packaged game): a blocking load reports here.
 	EndLoadHandle = FCoreUObjectDelegates::OnEndLoadPackage.AddWeakLambda(this, [this](const FEndLoadPackageContext& Context)
 	{
 		for (UPackage* Package : Context.LoadedPackages)
@@ -287,13 +294,16 @@ void UGam3PerfProbe::Initialize(FSubsystemCollectionBase& Collection)
 			if (Package && FrameLoads.Num() < 64) FrameLoads.AddUnique(Package->GetName());
 		}
 	});
+#endif
 	GCHandle = FCoreUObjectDelegates::GetPostGarbageCollect().AddWeakLambda(this, [this]() { bFrameGC = true; });
 }
 
 void UGam3PerfProbe::Deinitialize()
 {
 	FCoreUObjectDelegates::OnPackageLoadCompleted.Remove(LoadHandle);
+#if WITH_EDITOR
 	FCoreUObjectDelegates::OnEndLoadPackage.Remove(EndLoadHandle);
+#endif
 	FCoreUObjectDelegates::GetPostGarbageCollect().Remove(GCHandle);
 	Super::Deinitialize();
 }
@@ -476,6 +486,24 @@ void UGam3PerfProbe::Tick(float DeltaTime)
 		Segment.Game.Add(FPlatformTime::ToMilliseconds(GGameThreadTime));
 		Segment.Render.Add(FPlatformTime::ToMilliseconds(GRenderThreadTime));
 		Segment.Gpu.Add(FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
+		// Lights are counted, not timed: with fully dynamic lighting every lit light is paid for every frame, and
+		// the count is the first thing to check when an effect-heavy moment is slow. Sampled a few times a second.
+		if (--LightCountdown <= 0)
+		{
+			LightCountdown = 10;
+			int32 All = 0, Dynamic = 0, Shadowed = 0;
+			for (TObjectIterator<ULightComponent> It; It; ++It)
+			{
+				const ULightComponent* Light = *It;
+				if (Light->GetWorld() != World || !Light->IsRegistered() || !Light->IsVisible() || Light->Intensity <= 0.f) continue;
+				++All;
+				if (Light->Mobility != EComponentMobility::Static) ++Dynamic;
+				if (Light->CastShadows) ++Shadowed;
+			}
+			Segment.Lights = FMath::Max(Segment.Lights, All);
+			Segment.DynamicLights = FMath::Max(Segment.DynamicLights, Dynamic);
+			Segment.ShadowedLights = FMath::Max(Segment.ShadowedLights, Shadowed);
+		}
 		if (Ms > HitchMs && Hitches.Num() < 200)
 		{
 			FHitch Hitch;
@@ -632,6 +660,9 @@ void UGam3PerfProbe::Finish(UWorld* World)
 		Object->SetNumberField(TEXT("game_ms"), Gam3Average(Segment.Game));
 		Object->SetNumberField(TEXT("render_ms"), Gam3Average(Segment.Render));
 		Object->SetNumberField(TEXT("gpu_ms"), Gam3Average(Segment.Gpu));
+		Object->SetNumberField(TEXT("lights"), Segment.Lights);
+		Object->SetNumberField(TEXT("dynamic_lights"), Segment.DynamicLights);
+		Object->SetNumberField(TEXT("shadowed_lights"), Segment.ShadowedLights);
 		SegmentList.Add(MakeShared<FJsonValueObject>(Object));
 	}
 	Root->SetArrayField(TEXT("segments"), SegmentList);

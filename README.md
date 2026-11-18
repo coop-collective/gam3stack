@@ -159,11 +159,11 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 ## What was tested
 
 Each kit's `kit.json` has a `verified` entry saying which engine version and platform it was run on and what was
-run. Read it before relying on a kit elsewhere. Short version for 0.5.0: everything was run on macOS (Apple
+run. Read it before relying on a kit elsewhere. Short version for 0.5.1: everything was run on macOS (Apple
 silicon) with UE 5.9 and Unity 6000.6, in small test projects. Windows and Linux code paths exist but were not
 run. From 0.5.0 the Unreal ready gate, screenshots, performance room and movement bot were also run in one real game
-with open levels, its own input system and third-party effects. The Unity performance kit was also run in a built macOS player; nothing else was run in a packaged or built
-player. The timings in the kit docs are from those small projects; measure your own. On macOS a windowed Unreal
+with open levels, its own input system and third-party effects. The Unity performance kit was run in a built macOS player, and the Unreal ready gate, prewarm, screenshots and
+test room in a packaged Development build of the test project; Shipping builds were not run. The timings in the kit docs are from those small projects; measure your own. On macOS a windowed Unreal
 game is locked to the display's refresh rate, so frame times there have a floor; the performance kit says when.
 
 ## Scope

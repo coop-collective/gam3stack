@@ -2,7 +2,7 @@
 // Measure the game in parts, at full quality and in real time, and compare with a budget and a saved baseline.
 //   node Tools/gam3/ue_perf.mjs --scenario room|flyby|play [--data Tools/gam3/perf.json] [--map /Game/Maps/L_Level]
 //        [--name NAME] [--prewarm] [--seconds 30] [--bot wander] [--budget-ms 16.7] [--first-use-ms 8]
-//        [--hitch-ms 50] [--max-hitches N] [--save-baseline NAME] [--baseline NAME] [--regress-pct 10]
+//        [--hitch-ms 50] [--max-hitches N] [--max-lights N] [--max-shadowed N] [--save-baseline NAME] [--baseline NAME] [--regress-pct 10]
 //        [--res 1920x1080] [--shared] [--timeout 900] [-- extra engine args]
 // Scenarios (needs the perf-pass source in the game module):
 //   room    every subject in the data file's "room" list is spawned alone in front of a fixed camera, cold and then
@@ -12,6 +12,8 @@
 //   flyby   the camera moves through the data file's "flyby" points; one line per leg.
 //   play    the game plays itself for --seconds (your demo mode after `--`, or --bot with the walk-bot kit);
 //           frames are grouped by the labels the game sets with UGam3PerfProbe::Mark.
+// Every segment also reports the most lights lit at once and how many of them cast shadows: counts, so they hold
+// on a busy machine. --max-lights and --max-shadowed turn them into a budget.
 // A performance run must be alone on the machine: it waits until no other engine is running and holds every engine
 // slot while it runs. --shared skips that; the numbers are then only good for finding hitches, and the line says so.
 // Vsync is off where the platform allows it; a windowed game on macOS is still locked to the display, and the
@@ -94,7 +96,7 @@ export function judge(report, { budgetMs = 16.7, firstUseMs = 8, maxHitches = In
 async function main(argv) {
   const a = parseArgs(argv, {
     flags: ['prewarm', 'shared'],
-    options: ['scenario', 'data', 'map', 'name', 'res', 'budget-ms', 'first-use-ms', 'seconds', 'bot', 'seed', 'hitch-ms', 'max-hitches', 'save-baseline', 'baseline', 'regress-pct', 'timeout'],
+    options: ['max-lights', 'max-shadowed', 'scenario', 'data', 'map', 'name', 'res', 'budget-ms', 'first-use-ms', 'seconds', 'bot', 'seed', 'hitch-ms', 'max-hitches', 'save-baseline', 'baseline', 'regress-pct', 'timeout'],
   });
   const cfg = ueConfig();
   const scenario = a.scenario || 'room';
@@ -159,9 +161,9 @@ async function main(argv) {
   const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
   const j = judge(rep, { budgetMs, firstUseMs, maxHitches: a['max-hitches'] === undefined ? Infinity : Number(a['max-hitches']) });
 
-  console.log('segment                      frames   avg    p50    p99    max   game  render   gpu  (ms)');
+  console.log('segment                      frames   avg    p50    p99    max   game  render   gpu  (ms)   lights/shadowed');
   for (const s of rep.segments) {
-    console.log(`${s.label.padEnd(28).slice(0, 28)} ${String(s.frames).padStart(6)} ${[s.avg_ms, s.p50_ms, s.p99_ms, s.max_ms, s.game_ms, s.render_ms, s.gpu_ms].map((v) => num(v).padStart(6)).join(' ')}${s.avg_ms > budgetMs ? '  OVER BUDGET' : ''}`);
+    console.log(`${s.label.padEnd(28).slice(0, 28)} ${String(s.frames).padStart(6)} ${[s.avg_ms, s.p50_ms, s.p99_ms, s.max_ms, s.game_ms, s.render_ms, s.gpu_ms].map((v) => num(v).padStart(6)).join(' ')}${s.lights !== undefined ? `   ${String(s.lights).padStart(4)}/${s.shadowed_lights}` : ''}${s.avg_ms > budgetMs ? '  OVER BUDGET' : ''}`);
   }
   if (rep.subjects?.length) {
     console.log('subject                      load  first-use   warm  steady  (ms)');
@@ -182,13 +184,17 @@ async function main(argv) {
   }
   const busy = Math.max(loadBefore, load());
   if (busy > 0.7) console.log(`note: the machine was busy with other work during this run (load ${busy.toFixed(1)} per core). Frame times and first-use numbers are not trustworthy; run again when it is quiet.`);
+  const maxLights = Math.max(0, ...rep.segments.map((s) => s.lights || 0));
+  const maxShadowed = Math.max(0, ...rep.segments.map((s) => s.shadowed_lights || 0));
+  const lightsOver = (a['max-lights'] !== undefined && maxLights > Number(a['max-lights'])) || (a['max-shadowed'] !== undefined && maxShadowed > Number(a['max-shadowed']));
+  if (lightsOver) console.log(`over the light budget: ${maxLights} lights lit at once, ${maxShadowed} casting shadows`);
   const cap = displayCap(rep);
   if (cap) console.log(`note: frames were locked to the display (${cap} Hz), so frame time and render-thread time have a floor of ${num(1000 / cap)} ms. Below that, read the game and gpu columns; baselines compare those too.`);
-  const ok = j.ok && baseline !== 'regressed' && rd.ready !== 'timeout' && !problems.fatal.length && r.killedBy !== 'timeout';
+  const ok = j.ok && !lightsOver && baseline !== 'regressed' && rd.ready !== 'timeout' && !problems.fatal.length && r.killedBy !== 'timeout';
   if (a['save-baseline'] && ok) fs.copyFileSync(report, path.join(baseDir, `${a['save-baseline']}.json`));
   if (a['save-baseline'] && !ok) console.log('baseline not saved: the run failed');
   const list = (v) => (v.length ? v.join(',').replace(/\s+/g, '_') : '0');
-  console.log(`GAM3PERF: ${ok ? 'ok' : 'FAILED'} scenario=${scenario} frames=${j.frames} avg_ms=${num(j.avg)} p99_ms=${num(j.p99)} fps=${num(1000 / j.avg)} hitches=${j.hitches} subjects=${rep.subjects?.length || 0} first_use_fail=${list(j.firstUse)} over_budget=${list(j.overBudget)} late_compile=${list(j.lateCompile)} first_use_pipeline_states=${j.coldStates} baseline=${baseline} display_cap=${cap || 'none'} machine_load=${Number.isFinite(busy) ? busy.toFixed(1) : '?'} exclusive=${a.shared ? 'no' : 'yes'} ready=${rd.ready} res=${rep.resolution || '?'}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} report=${report}`);
+  console.log(`GAM3PERF: ${ok ? 'ok' : 'FAILED'} scenario=${scenario} frames=${j.frames} avg_ms=${num(j.avg)} p99_ms=${num(j.p99)} fps=${num(1000 / j.avg)} hitches=${j.hitches} subjects=${rep.subjects?.length || 0} first_use_fail=${list(j.firstUse)} over_budget=${list(j.overBudget)} late_compile=${list(j.lateCompile)} first_use_pipeline_states=${j.coldStates} max_lights=${maxLights} max_shadowed=${maxShadowed} baseline=${baseline} display_cap=${cap || 'none'} machine_load=${Number.isFinite(busy) ? busy.toFixed(1) : '?'} exclusive=${a.shared ? 'no' : 'yes'} ready=${rd.ready} res=${rep.resolution || '?'}${r.killedBy ? ` stopped=${r.killedBy}` : ''}${r.slept ? ` slept=${r.slept}s` : ''} report=${report}`);
   return ok ? 0 : 1;
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "unreal",
   "description": "Unreal Engine for coding agents: drive an open editor from the shell, build levels with Landscape and PCG from one data file, compile C++ and capture the real game unattended once the level is actually ready, and split work across subagents. Kits are source copied into your project; includes skills, /unreal:* commands and a local MCP server.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": { "name": "Xava Labs" },
   "license": "MIT",
   "keywords": ["gam3stack", "unreal", "unreal-engine", "ue5", "gamedev", "pcg", "landscape", "mcp", "kits"]
