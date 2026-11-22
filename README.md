@@ -122,12 +122,28 @@ project unless told to. Either way a machine-wide cap
 (`GAM3_MAX_ENGINES`, default 3) queues engine starts, and the skills carry the merge rules: engine assets are
 binary, so each agent owns its files and generated levels are rebuilt after merging.
 
+## One rule in every session: tests must be deterministic
+
+Both plugins add one short rule to every session, in every project: the same code gives the same result on every
+run, on any machine, in parallel with other tests. No wall-clock assertions, no sleeping to wait, private temp
+directories and port 0, no shared state, no assumed ordering, seeded randomness, a repeated run before review, and
+a flaky test is fixed or taken out of the gating run, never retried until green. For engine tests: a fixed time
+step and fixed seeds, waiting on ready signals rather than frame counts or delays, and no dependence on frame rate
+or machine speed. The `unreal-deterministic-tests` and `unity-deterministic-tests` skills say how.
+
+The text is one file, `core/rules/deterministic-tests.md`, copied into each plugin's `rules/` by `npm run sync`.
+Each plugin's SessionStart hook (`hooks/session-start.mjs`) prints it as session context; it reads one file,
+uses no network and writes nothing. Claude Code runs the hook as soon as the plugin is enabled. Codex skips a
+plugin hook until you review and trust it: run `/hooks` once after installing or updating the plugin. Until then
+a Codex session still sees the rule in the skill's description.
+
 ## What is in a plugin
 
 | Part | What it is |
 | --- | --- |
 | Kits | Scripts and engine source copied into the project: [kit format](docs/KIT-SPEC.md) |
 | Skills | How to work in the engine as an agent: the build-and-look loop, readiness rules for captures and for the game itself, performance passes, movement checks, scripted game tests, writing gameplay as code and entities, turning on the editor's own tools, splitting work across subagents, building worlds from data |
+| Core rules | `rules/*.md`, added to every session by the plugin's SessionStart hook |
 | MCP tools | `<engine>_doctor`, `<engine>_kits`, `<engine>_kit`, `<engine>_install` |
 | Commands | Short entry points for the above |
 
@@ -159,7 +175,7 @@ binary, so each agent owns its files and generated levels are rebuilt after merg
 ## What was tested
 
 Each kit's `kit.json` has a `verified` entry saying which engine version and platform it was run on and what was
-run. Read it before relying on a kit elsewhere. Short version for 0.5.2: everything was run on macOS (Apple
+run. Read it before relying on a kit elsewhere. Short version for 0.5.3: everything was run on macOS (Apple
 silicon) with UE 5.9 and Unity 6000.6, in small test projects. Windows and Linux code paths exist but were not
 run. From 0.5.0 the Unreal ready gate, screenshots, performance room and movement bot were also run in one real game
 with open levels, its own input system and third-party effects. The Unity performance kit was run in a built macOS player, and the Unreal ready gate, prewarm, screenshots and
@@ -180,8 +196,9 @@ cd gam3stack
 npm run check        # sync check, validation, tests (no install needed: there are no dependencies)
 ```
 
-`core/` holds the kit installer, the command line and the MCP server. Each plugin carries a copy in
-`scripts/lib/`, because agents install a plugin as its own directory. After changing `core/`, run `npm run sync`.
+`core/` holds the kit installer, the command line and the MCP server, plus the core rules (`core/rules/`) and the
+hook that prints them (`core/hooks/`). Each plugin carries a copy in `scripts/lib/`, `rules/` and `hooks/`, because
+agents install a plugin as its own directory. After changing `core/`, run `npm run sync`.
 
 Contributing a kit: take it from code that works in a real project, follow the [kit format](docs/KIT-SPEC.md),
 state its limits in `KIT.md`, and fill `verified` with what you ran.
