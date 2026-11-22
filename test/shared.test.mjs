@@ -31,8 +31,18 @@ test('slots: the cap is held, a dead holder frees its slot, release frees it', a
   delete process.env.GAM3_SLOT_DIR;
 });
 
+// Every git this test starts, directly or through env.mjs, reads an empty user config: signing, hooks, excludes and
+// status settings in the developer's own ~/.gitconfig must not decide whether the test passes.
+let gitEnv = process.env;
+function isolateGit(dir) {
+  const config = path.join(dir, 'empty.gitconfig');
+  fs.writeFileSync(config, '');
+  gitEnv = { ...process.env, GIT_CONFIG_GLOBAL: config };
+  for (const k of Object.keys(gitEnv)) if (/^GIT_(DIR|WORK_TREE|INDEX_FILE|CONFIG_COUNT|CONFIG_PARAMETERS)$/.test(k)) delete gitEnv[k];
+}
+
 function git(cwd, ...args) {
-  const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], { cwd, encoding: 'utf8' });
+  const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], { cwd, encoding: 'utf8', env: gitEnv });
   assert.equal(r.status, 0, r.stderr);
   return r.stdout.trim();
 }
@@ -40,6 +50,7 @@ function git(cwd, ...args) {
 test('env: create, status with a binary clash, guarded remove', (t) => {
   if (spawnSync('git', ['--version']).status !== 0) return t.skip('git not available');
   const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gam3-env-')));
+  isolateGit(base);
   const proj = path.join(base, 'game');
   fs.mkdirSync(path.join(proj, 'Tools', 'gam3'), { recursive: true });
   fs.mkdirSync(path.join(proj, 'Content'));
@@ -53,7 +64,7 @@ test('env: create, status with a binary clash, guarded remove', (t) => {
   git(proj, 'add', '-A');
   git(proj, 'commit', '-qm', 'base');
   fs.writeFileSync(path.join(proj, 'untracked.bin'), 'not in git');
-  const env = (...args) => spawnSync(process.execPath, [path.join(proj, 'Tools', 'gam3', 'env.mjs'), ...args], { encoding: 'utf8' });
+  const env = (...args) => spawnSync(process.execPath, [path.join(proj, 'Tools', 'gam3', 'env.mjs'), ...args], { encoding: 'utf8', env: gitEnv });
 
   const made = env('create', 'one');
   assert.match(made.stdout, /GAM3ENV: ok created one .*port=8124 copy=/);
@@ -82,7 +93,7 @@ test('env: create, status with a binary clash, guarded remove', (t) => {
   assert.match(env('remove', 'two').stderr, /1 uncommitted change/);   // the untracked file it carried over
   assert.match(env('remove', 'two', '--force').stdout, /GAM3ENV: ok removed two/);
   // A file system that cannot clone: small projects are copied, large ones are refused unless asked for.
-  const copyEnv = (extra, ...args) => spawnSync(process.execPath, [path.join(proj, 'Tools', 'gam3', 'env.mjs'), ...args], { encoding: 'utf8', env: { ...process.env, GAM3_ENV_FORCE_COPY: '1', ...extra } });
+  const copyEnv = (extra, ...args) => spawnSync(process.execPath, [path.join(proj, 'Tools', 'gam3', 'env.mjs'), ...args], { encoding: 'utf8', env: { ...gitEnv, GAM3_ENV_FORCE_COPY: '1', ...extra } });
   const small = copyEnv({}, 'create', 'three');
   assert.match(small.stdout, /GAM3ENV: ok created three .*copy=full/);
   assert.equal(fs.readFileSync(path.join(base, 'game-env-three', 'Content', 'Level.umap'), 'utf8'), 'ours');
