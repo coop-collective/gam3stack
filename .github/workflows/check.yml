@@ -20,4 +20,4 @@ jobs:
       - name: Shared core is copied into every plugin
         run: node scripts/sync.mjs --check
       - run: node scripts/validate.mjs
-      - run: node --test test/kits.test.mjs test/mcp.test.mjs
+      - run: node --test test/kits.test.mjs test/mcp.test.mjs test/hook.test.mjs

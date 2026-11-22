@@ -50,6 +50,33 @@ for (const entry of market.plugins || []) {
     }
     if (!fs.existsSync(path.join(skillsDir, s, 'agents', 'openai.yaml'))) bad(`${entry.name}/skills/${s}: agents/openai.yaml is missing`);
   }
+  // Core rules reach every session two ways: the SessionStart hook prints rules/*.md as context (Claude Code runs it
+  // once the plugin is enabled; Codex runs it once the user has trusted it), and a skill whose description leads with
+  // the rule, which both harnesses list in every session.
+  const hooks = json(rel('hooks/hooks.json')).hooks || {};
+  if (JSON.stringify(Object.keys(hooks)) !== JSON.stringify(['SessionStart'])) bad(`${entry.name}: hooks/hooks.json must define exactly SessionStart`);
+  for (const g of hooks.SessionStart || []) for (const h of g.hooks || []) {
+    if (h.type !== 'command' || !/\/hooks\/session-start\.mjs"$/.test(h.command)) bad(`${entry.name}: hooks/hooks.json runs an unexpected command: ${h.command}`);
+  }
+  if (!fs.existsSync(path.join(dir, 'hooks', 'session-start.mjs'))) bad(`${entry.name}: hooks/session-start.mjs is missing (run: npm run sync)`);
+  if (codex.hooks !== './hooks/hooks.json') bad(`${entry.name}: .codex-plugin/plugin.json must point hooks at ./hooks/hooks.json`);
+  const rule = path.join(dir, 'rules', 'deterministic-tests.md');
+  if (!fs.existsSync(rule)) bad(`${entry.name}: rules/deterministic-tests.md is missing (run: npm run sync)`);
+  else {
+    const text = fs.readFileSync(rule, 'utf8');
+    if (text.length > 4000) bad(`${entry.name}: rules/deterministic-tests.md is in every session; keep it under 4000 characters`);
+    for (const must of ['# Tests must be deterministic', '## Engine tests', 'Fixed timestep and fixed seeds', 'ready signals', 'frame rate or machine speed', `${entry.name}-deterministic-tests`]) {
+      if (!text.includes(must)) bad(`${entry.name}: rules/deterministic-tests.md must contain "${must}"`);
+    }
+  }
+  const ruleSkill = path.join(skillsDir, `${entry.name}-deterministic-tests`, 'SKILL.md');
+  const ruleFm = fs.existsSync(ruleSkill) ? frontmatter(ruleSkill) : null;
+  if (!ruleFm) bad(`${entry.name}: skills/${entry.name}-deterministic-tests is missing`);
+  else {
+    if (!/^Tests must be deterministic\b/.test(ruleFm.description || '')) bad(`${entry.name}-deterministic-tests: the description must state the rule first (it is what a session sees without the hook)`);
+    if ('disable-model-invocation' in ruleFm) bad(`${entry.name}-deterministic-tests: must stay implicitly invocable`);
+    if (/allow_implicit_invocation:\s*false/.test(fs.readFileSync(path.join(path.dirname(ruleSkill), 'agents', 'openai.yaml'), 'utf8'))) bad(`${entry.name}-deterministic-tests: must stay implicitly invocable in Codex`);
+  }
   const commandsDir = path.join(dir, 'commands');
   for (const c of fs.existsSync(commandsDir) ? fs.readdirSync(commandsDir).filter((f) => f.endsWith('.md')) : []) {
     if (!frontmatter(path.join(commandsDir, c))?.description) bad(`${entry.name}/commands/${c}: frontmatter needs a description`);

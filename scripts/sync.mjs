@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copy core/*.mjs into each plugin's scripts/lib/, and core/kit-shared/*.mjs into each plugin's driver kit. A plugin is installed on its own (the agent copies just its
+// Copy core/*.mjs into each plugin's scripts/lib/, core/rules/ and core/hooks/ into each plugin's rules/ and hooks/, and core/kit-shared/*.mjs into each plugin's driver kit. A plugin is installed on its own (the agent copies just its
 // directory), so it cannot import from the repository root. `--check` fails when a copy is stale; CI runs that.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +27,29 @@ for (const plugin of plugins) {
     stale++;
     if (check) console.error(`unexpected: plugins/${plugin}/scripts/lib/${f}`);
     else fs.rmSync(path.join(lib, f));
+  }
+}
+// Always-on session context: the core rules and the SessionStart hook that prints them are the same in every plugin.
+for (const plugin of plugins) {
+  for (const sub of ['rules', 'hooks']) {
+    const from = path.join(root, 'core', sub);
+    const to = path.join(root, 'plugins', plugin, sub);
+    const names = fs.readdirSync(from).sort();
+    fs.mkdirSync(to, { recursive: true });
+    for (const f of names) {
+      const want = fs.readFileSync(path.join(from, f), 'utf8');
+      const dest = path.join(to, f);
+      if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') === want) continue;
+      stale++;
+      if (check) console.error(`stale: plugins/${plugin}/${sub}/${f} (run: npm run sync)`);
+      else fs.writeFileSync(dest, want);
+    }
+    for (const f of fs.readdirSync(to)) {
+      if (names.includes(f)) continue;
+      stale++;
+      if (check) console.error(`unexpected: plugins/${plugin}/${sub}/${f}`);
+      else fs.rmSync(path.join(to, f));
+    }
   }
 }
 // Tools shipped unchanged for every engine: the engine-slot cap and local environments.

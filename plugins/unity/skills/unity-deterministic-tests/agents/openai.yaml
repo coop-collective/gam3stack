@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity: deterministic tests"
+  short_description: "Fixed time step, fixed seeds, waits on signals: tests that pass on every run on any machine"
+  default_prompt: "Use $unity-deterministic-tests to check the tests in this change and fix any that can fail intermittently."
